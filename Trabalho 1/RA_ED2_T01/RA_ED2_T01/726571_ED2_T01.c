@@ -118,9 +118,12 @@ int inserir_Pindex (Ip *indice_primario, char *index, int num);
 //Remove o índice primário desejado
 int remover_Pindex (Ip *indice_primario, char *index);
 
-//Função de comparação para bsearch
+//Funções de comparação para bsearch
 int compare_ind (const void *search, const void *actual);
 int compare_Sind (const void *actual, const void *search);
+
+//Função para comparação de valores
+int max (int a, int b);
 
 /* Funções para índices secundários */
 //Insere novo IS se esse não existir previamente, senão insere novo IP na lista
@@ -132,6 +135,9 @@ void inserir_Preco (Ir **precos, char *Sec_index, char *P_index, int *num, char 
 //Remove índice primário da lista invertida do IS passado
 int remover_Sindex (Ir *indice_secundario, char *Sec_index, char *P_index);
 
+//Realiza busca do índice secundário desejado
+Ir *recuperaIS(Ir *indice_secundario, char *key, int num);
+
 //Rotinas para lista invertida (índices primários referenciados)
 //Insere novo índice primário referenciado, em ordem lexicográfica
 void insere_novoNo (ll **lista, ll *novo_no);
@@ -141,18 +147,16 @@ void remove_No (ll **lista, char *P_index);
 
 //Outras funções
 //Insere um novo registro no arquivo de dados
-void insere_Arq (Jogo *titulo, int nregistros);
+void insere_Arq (Jogo titulo, int nregistros);
 
 /* ==========================================================================
  * ============================ FUNÇÃO PRINCIPAL ============================
  * ======================================================================= */
 int main(){
   /* Arquivo */
-	int carregarArquivo = 0, nregistros = 0, ncat = 0, ngame = 0, ndev = 0, nprice = 0, nPindex = 0;
+	int carregarArquivo = 0, nregistros = 0, ncat = 0, ngame = 0, ndev = 0, nprice = 0;
 	int tipo_busca;
-	Jogo *titulo;
-	char *search;
-	Ip *found;
+	Jogo* titulo = (Jogo *) malloc (sizeof(Jogo));
 
 	ll* aux;
 
@@ -185,13 +189,12 @@ int main(){
 
 		// INSERÇÃO
 		case 1:
-			titulo = (Jogo *) malloc (sizeof(Jogo));
 			ler_entrada(&titulo);
 
 			//Insere um novo índice na lista de índices primários
-			if (inserir_Pindex(iprimary, titulo->pk, nPindex)) {
+			if (inserir_Pindex(iprimary, titulo->pk, nregistros)) {
 
-				insere_Arq (titulo, nregistros);
+				insere_Arq ((*titulo), nregistros);
 
 				/* INSERÇÃO ÍNDICES SECUNDÁRIOS -> INSERÇÃO LISTA INVERTIDA */
 				inserir_Sindex (&igame, titulo->nome, titulo->pk, &ngame);
@@ -248,7 +251,6 @@ int main(){
 				//
 				// aux = NULL;
 
-				nPindex++;
 				nregistros++;
 			} else
 				printf(ERRO_PK_REPETIDA, titulo->pk);
@@ -275,9 +277,30 @@ int main(){
 			printf(INICIO_BUSCA );
 			scanf("%d", &tipo_busca);
 
+			//Busca por índice primário
 			if (1) {
+				//Lê a chave primária que deseja-se buscar
+				scanf("%s", titulo->pk); getchar();
+				if (!exibir_registro(recuperar_rrn(iprimary, titulo->pk, nregistros), 0))
+					printf(REGISTRO_N_ENCONTRADO);
+			}
+
+			//Busca por título do jogo
+			else if (2) {
+				//Lê o título que deseja-se buscar
+				scanf("%s", titulo->nome); getchar();
 
 			}
+
+			//Busca por nome de desenvolvedora e categoria
+			else if (3) {
+				//Lê o desenvolvedora que deseja-se buscar
+				scanf("%s", titulo->desenvolvedora); getchar();
+
+				//Lê a categoria que deseja-se buscar
+				scanf("%s", titulo->categoria); getchar();
+			}
+
 			break;
 		case 5:
 			/* listar */
@@ -306,38 +329,38 @@ int main(){
 
 
 /* Exibe o jogo, utilize com_desconto = 1 para listagem por preço */
-// int exibir_registro(int rrn, char com_desconto) {
-//
-// 	if(rrn < 0)
-// 		return (0);
-//
-// 	float preco;
-// 	short int desconto;
-// 	Jogo j = recuperar_registro(rrn);
-// 	char *cat, categorias[TAM_CATEGORIA];
-//
-// 	printf("%s\n", j.pk);
-// 	printf("%s\n", j.nome);
-// 	printf("%s\n", j.desenvolvedora);
-// 	printf("%s\n", j.data);
-//
-// 	if(com_desconto){
-// 		sscanf(j.preco, "%f", &preco);
-// 		sscanf(j.desconto, "%hd", &desconto);
-// 		printf("%07.2f\n", preco * (100-desconto) /(float)100 );
-// 	}
-// 	else{
-// 		printf("%s\n", j.preco);
-// 		printf("%s\n", j.desconto);
-// 	}
-//
-// 	strncpy(categorias, j.categoria, max(strlen(j.categoria), TAM_CATEGORIA - 1));
-//   	for (cat = strtok (categorias, "|"); cat != NULL; cat = strtok (NULL, "|"))
-//     	printf("%s ", cat);
-//
-// 	printf("\n");
-// 	return (1);
-// }
+int exibir_registro(int rrn, char com_desconto) {
+
+	if(rrn < 0)
+		return (0);
+
+	float preco;
+	short int desconto;
+	Jogo j = recuperar_registro(rrn);
+	char *cat, categorias[TAM_CATEGORIA];
+
+	printf("%s\n", j.pk);
+	printf("%s\n", j.nome);
+	printf("%s\n", j.desenvolvedora);
+	printf("%s\n", j.data);
+
+	if(com_desconto){
+		sscanf(j.preco, "%f", &preco);
+		sscanf(j.desconto, "%hd", &desconto);
+		printf("%07.2f\n", preco * (100-desconto) /(float)100 );
+	}
+	else{
+		printf("%s\n", j.preco);
+		printf("%s\n", j.desconto);
+	}
+
+	strncpy(categorias, j.categoria, max(strlen(j.categoria), TAM_CATEGORIA - 1));
+  	for (cat = strtok (categorias, "|"); cat != NULL; cat = strtok (NULL, "|"))
+    	printf("%s ", cat);
+
+	printf("\n");
+	return (1);
+}
 
 /* Imprime o menu para o usuário */
 void print_menu(){
@@ -366,6 +389,12 @@ int compare_Sind (const void *actual, const void *search) {
 	return strcmp(((Ir *)actual)->chave, (char *)search);
 }
 
+//Comparação de maior valor
+int max (int a, int b) {
+	if (a > b) return a;
+	return b;
+}
+
 /* OUTRAS FUNÇÕES */
 void ler_entrada (Jogo **titulo) {
 	//Recebe todos os dados do jogo
@@ -390,16 +419,16 @@ void ler_entrada (Jogo **titulo) {
 	(*titulo)->data[1], (*titulo)->data[3], (*titulo)->data[4], (*titulo)->classificacao);
 }
 
-void insere_Arq (Jogo *titulo, int nregistros) {
+//Insere um novo registro no arquivo de dados
+void insere_Arq (Jogo titulo, int nregistros) {
 	char *archive = ARQUIVO;
 
 	//Encontra a quantidade de caracteres '#' devem ser inseridas
-	int qntd_sharps = 192 - (39 + strlen(titulo->nome) + strlen(titulo->desenvolvedora) + strlen(titulo->categoria));
+	int qntd_sharps = 192 - (29 + strlen(titulo.nome) + strlen(titulo.desenvolvedora) + strlen(titulo.categoria));
 
 	//Escreve o registro no arquivo de dados no primeiro espaço em branco
-	sprintf((archive + (192 * nregistros)), "%s@%s@%s@%s@%s@%s@%s@%s@", titulo->pk, titulo->nome,
-	titulo->desenvolvedora,	titulo->data,	titulo->classificacao, titulo->preco, titulo->desconto,
-	titulo->categoria);
+	sprintf((archive + (192 * nregistros)), "%s@%s@%s@%s@%s@%s@%s@", titulo.nome, titulo.desenvolvedora,
+	titulo.data,	titulo.classificacao, titulo.preco, titulo.desconto, titulo.categoria);
 
 	//Coloca os "#" no arquivo
 	int i;
@@ -412,14 +441,16 @@ Jogo recuperar_registro(int rrn) {
 	Jogo j;
 
 	char *reg = &ARQUIVO[rrn * 192];
-	strcpy (j.pk, strtok(reg, "@"));
-	strcpy (j.nome, strtok(NULL, "@"));
+	strcpy (j.nome, strtok(reg, "@"));
 	strcpy (j.desenvolvedora, strtok(NULL, "@"));
 	strcpy (j.data, strtok(NULL, "@"));
 	strcpy (j.classificacao, strtok(NULL, "@"));
 	strcpy (j.preco, strtok(NULL, "@"));
 	strcpy (j.desconto, strtok(NULL, "@"));
 	strcpy (j.categoria, strtok(NULL, "@"));
+
+	sprintf (j.pk, "%c%c%c%c%c%c%c%c%s", j.nome[0], j.nome[1], j.desenvolvedora[0],
+	j.desenvolvedora[1], j.data[0],	j.data[1], j.data[3], j.data[4], j.classificacao);
 
 	return j;
 }
@@ -552,4 +583,12 @@ void remove_No (ll **lista, char *P_index) {
 		ant = rem->prox;
 		free (rem);
 	}
+}
+
+/* BUSCAS */
+int recuperar_rrn(Ip* iprimary, const char* pk, int nregistros) {
+	Ip *search = bsearch(pk, iprimary, nregistros, sizeof(Ip), compare_ind);
+
+	if (search != NULL)	return search->rrn;
+	else return 0;
 }
