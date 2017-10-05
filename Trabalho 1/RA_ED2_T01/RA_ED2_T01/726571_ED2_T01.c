@@ -136,7 +136,10 @@ void inserir_Preco (Ir **precos, char *Sec_index, char *P_index, int *num, char 
 int remover_Sindex (Ir *indice_secundario, char *Sec_index, char *P_index);
 
 //Realiza busca do índice secundário desejado
-Ir *recuperaIS(Ir *indice_secundario, char *key, int num);
+Ir *recuperar_IS(Ir *indice_secundario, char *key, int num);
+
+//Exibe os índices primários associados a um título
+int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros);
 
 //Rotinas para lista invertida (índices primários referenciados)
 //Insere novo índice primário referenciado, em ordem lexicográfica
@@ -154,8 +157,8 @@ void insere_Arq (Jogo titulo, int nregistros);
  * ======================================================================= */
 int main(){
   /* Arquivo */
-	int carregarArquivo = 0, nregistros = 0, ncat = 0, ngame = 0, ndev = 0, nprice = 0;
 	int tipo_busca;
+	int carregarArquivo = 0, nregistros = 0, ncat = 0, ngame = 0, ndev = 0, nprice = 0;
 	Jogo* titulo = (Jogo *) malloc (sizeof(Jogo));
 
 	ll* aux;
@@ -289,7 +292,8 @@ int main(){
 			else if (2) {
 				//Lê o título que deseja-se buscar
 				scanf("%s", titulo->nome); getchar();
-
+				if (!exibir_ListaInvertida(recuperar_IS(igame, titulo->nome, ngame), iprimary, nregistros))
+					printf(REGISTRO_N_ENCONTRADO);
 			}
 
 			//Busca por nome de desenvolvedora e categoria
@@ -528,7 +532,6 @@ void inserir_Sindex (Ir **indice_secundario, char *Sec_index, char *P_index, int
 }
 
 /* ÍNDICES PRIMÁRIOS REFERENCIADOS */
-
 //Insere novo nó na lista de índices primários
 void insere_novoNo (ll **lista, ll *novo_no) {
 	//Verifica se a lista está vazia
@@ -586,9 +589,36 @@ void remove_No (ll **lista, char *P_index) {
 }
 
 /* BUSCAS */
+//Dada uma chave primária, encontra o rrn correspondente a ela
 int recuperar_rrn(Ip* iprimary, const char* pk, int nregistros) {
 	Ip *search = bsearch(pk, iprimary, nregistros, sizeof(Ip), compare_ind);
 
 	if (search != NULL)	return search->rrn;
 	else return 0;
+}
+
+//Dada uma chave secundária, retorna um ponteiro para o registro de chave secundária
+//correspondente. Se não for encontrado, retorna NULL
+Ir *recuperar_IS(Ir *indice_secundario, char *key, int num) {
+	Ir *ret = bsearch (key, indice_secundario, num, sizeof(Ir), compare_Sind);
+
+	return ret;
+}
+
+//Busca e exibe os índices primários associados a um título de jogo
+int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros) {
+	//Retorna 0 se o jogo não for encontrado
+	if (!game) return 0;
+
+	ll *aux = game->lista;
+	Ip *pk;
+
+	//Percorre toda a lista invertida exibindo os jogos
+	while (aux) {
+		exibir_registro(recuperar_rrn(indice_primario, aux->pk, nregistros), 0);
+
+		aux = aux->prox;
+	}
+
+	return 1;
 }
