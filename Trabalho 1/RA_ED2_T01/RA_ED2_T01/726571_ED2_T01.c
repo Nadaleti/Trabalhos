@@ -69,6 +69,11 @@ typedef struct primary_index{
 
 /*	Você deve optar por utilizar índices secundários simples, ou listas invertidas.
  *  Seguem abaixo sugestões para suas EDs*/
+//Struct para índice secundário comum:
+typedef struct secundary_index{
+   char pk[TAM_PRIMARY_KEY];
+   char *chave;
+ } Is;
 
 //Lista ligada simples para a lista invertida:
 typedef struct linked_list{
@@ -119,8 +124,10 @@ int inserir_Pindex (Ip *indice_primario, char *index, int num);
 int remover_Pindex (Ip *indice_primario, char *index);
 
 //Funções de comparação para bsearch
-int compare_ind (const void *search, const void *actual);
-int compare_Sind (const void *actual, const void *search);
+int compare_ind_Bsearch (const void *search, const void *actual);
+int compare_ind_Qsort (const void *search, const void *actual);
+int compare_Sind_Bsearch (const void *actual, const void *search);
+int compare_Sind_Qsort (const void *actual, const void *search);
 
 //Função para comparação de valores
 int max (int a, int b);
@@ -128,15 +135,15 @@ int max (int a, int b);
 /* Funções para índices secundários */
 //Insere novo IS se esse não existir previamente, senão insere novo IP na lista
 //invertida do IS passado
-void inserir_Sindex (Ir **indice_secundario, char *Sec_index, char *P_index, int *num);
+void inserir_ListaInvertida (Ir **indice_secundario, char *Sec_index, char *P_index, int *num);
 void inserir_Cat (Ir **categoria, char *cat, char *P_index, int *num);
 void inserir_Preco (Ir **precos, char *Sec_index, char *P_index, int *num, char *desconto);
 
 //Remove índice primário da lista invertida do IS passado
-int remover_Sindex (Ir *indice_secundario, char *Sec_index, char *P_index);
+int remover_ListaInvertida (Ir *indice_secundario, char *Sec_index, char *P_index);
 
 //Realiza busca do índice secundário desejado
-Ir *recuperar_IS(Ir *indice_secundario, char *key, int num);
+Ir *recuperar_ListaInvertida(Ir *indice_secundario, char *key, int num);
 
 //Exibe os índices primários associados a um título
 int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros);
@@ -157,7 +164,7 @@ void insere_Arq (Jogo titulo, int nregistros);
  * ======================================================================= */
 int main(){
   /* Arquivo */
-	int tipo_busca;
+	int tipo;
 	int carregarArquivo = 0, nregistros = 0, ncat = 0, ngame = 0, ndev = 0, nprice = 0;
 	Jogo* titulo = (Jogo *) malloc (sizeof(Jogo));
 
@@ -180,7 +187,7 @@ int main(){
 	Ir *igame = (Ir *) malloc (sizeof(Ir));
 	Ir *idev = (Ir *) malloc (sizeof(Ir));
 	Ir *icat = (Ir *) malloc (sizeof(Ir));
-	Ir *iprice = (Ir *) malloc (sizeof(Ir));
+	Is *iprice = (Is *) malloc (sizeof(Ir));
 
 	//Cria índices a partir do arquivo
 
@@ -200,12 +207,17 @@ int main(){
 				insere_Arq ((*titulo), nregistros);
 
 				/* INSERÇÃO ÍNDICES SECUNDÁRIOS -> INSERÇÃO LISTA INVERTIDA */
-				inserir_Sindex (&igame, titulo->nome, titulo->pk, &ngame);
-				inserir_Sindex (&idev, titulo->desenvolvedora, titulo->pk, &ndev);
+				inserir_ListaInvertida (&igame, titulo->nome, titulo->pk, &ngame);
+				inserir_ListaInvertida (&idev, titulo->desenvolvedora, titulo->pk, &ndev);
 
 				inserir_Cat (&icat, titulo->categoria, titulo->pk, &ncat);
-				inserir_Preco (&iprice, titulo->preco, titulo->pk, &nprice, titulo->desconto);
+				//inserir_Preco (&iprice, titulo->preco, titulo->pk, &nprice, titulo->desconto);
 
+				//Imprimir índices primários
+				// printf("===== IPRIMARY =====\n");
+				// for (i = 0; i < nregistros; i++)
+				// 	printf("\n%s\n", iprimary[i].pk);
+				//
 				// //Imprimir índices secundários e suas listas
 				// printf("===== IGAME =====\n");
 				// for (i = 0; i < ngame; i++) {
@@ -278,26 +290,26 @@ int main(){
 		case 4:
 			/* buscar */
 			printf(INICIO_BUSCA );
-			scanf("%d", &tipo_busca);
+			scanf("%d\n", &tipo);
 
 			//Busca por índice primário
-			if (1) {
+			if (tipo == 1) {
 				//Lê a chave primária que deseja-se buscar
-				scanf("%s", titulo->pk); getchar();
+				scanf("%[^\n]", titulo->pk); getchar();
 				if (!exibir_registro(recuperar_rrn(iprimary, titulo->pk, nregistros), 0))
 					printf(REGISTRO_N_ENCONTRADO);
 			}
 
 			//Busca por título do jogo
-			else if (2) {
+			else if (tipo == 2) {
 				//Lê o título que deseja-se buscar
-				scanf("%s", titulo->nome); getchar();
-				if (!exibir_ListaInvertida(recuperar_IS(igame, titulo->nome, ngame), iprimary, nregistros))
+				scanf("%[^\n]", titulo->nome); getchar();
+				if (!exibir_ListaInvertida(recuperar_ListaInvertida(igame, titulo->nome, ngame), iprimary, nregistros))
 					printf(REGISTRO_N_ENCONTRADO);
 			}
 
 			//Busca por nome de desenvolvedora e categoria
-			else if (3) {
+			else if (tipo == 3) {
 				//Lê o desenvolvedora que deseja-se buscar
 				scanf("%s", titulo->desenvolvedora); getchar();
 
@@ -309,6 +321,7 @@ int main(){
 		case 5:
 			/* listar */
 			printf(INICIO_LISTAGEM);
+
 			break;
 		case 6:
 			/* liberar espaco */
@@ -385,12 +398,20 @@ int carregar_arquivo() {
 }
 
 //Comparação para Busca
-int compare_ind (const void *actual, const void *search) {
+int compare_ind_Bsearch (const void *actual, const void *search) {
 	return strcmp(((Ip *)actual)->pk, (char *)search);
 }
 
-int compare_Sind (const void *actual, const void *search) {
+int compare_ind_Qsort (const void *actual, const void *search) {
+	return strcmp(((Ip *)actual)->pk, ((Ip *)search)->pk);
+}
+
+int compare_Sind_Bsearch (const void *actual, const void *search) {
 	return strcmp(((Ir *)actual)->chave, (char *)search);
+}
+
+int compare_Sind_Qsort (const void *actual, const void *search) {
+	return strcmp(((Ir *)actual)->chave, ((Ir *)search)->chave);
 }
 
 //Comparação de maior valor
@@ -444,8 +465,15 @@ void insere_Arq (Jogo titulo, int nregistros) {
 Jogo recuperar_registro(int rrn) {
 	Jogo j;
 
-	char *reg = &ARQUIVO[rrn * 192];
-	strcpy (j.nome, strtok(reg, "@"));
+	char copy[192];
+	char *arq = ARQUIVO;
+	int i = rrn * 192;
+
+	//Realiza a cópia do registro encontrado no arquivo de dados
+	while (arq[i] != '#')
+		copy[i - (rrn * 192)] = arq[i++];
+
+	strcpy (j.nome, strtok(copy, "@"));
 	strcpy (j.desenvolvedora, strtok(NULL, "@"));
 	strcpy (j.data, strtok(NULL, "@"));
 	strcpy (j.classificacao, strtok(NULL, "@"));
@@ -462,7 +490,7 @@ Jogo recuperar_registro(int rrn) {
 /* ÍNDICES PRIMÁRIOS */
 int inserir_Pindex (Ip *indice_primario, char *index, int num) {
 	//Realiza a busca binária e retorna o ponteiro para a posição do índice, se existir
-	if (num && bsearch (index, indice_primario, num, sizeof(Ip), compare_ind)) {
+	if (num && bsearch (index, indice_primario, num, sizeof(Ip), compare_ind_Bsearch)) {
 		//Elemento já existe na lista
 		return 0;
 	} else {
@@ -473,7 +501,7 @@ int inserir_Pindex (Ip *indice_primario, char *index, int num) {
 		indice_primario[num].rrn = num;
 
 		//Reordena o vetor de índices usando qsort
-		qsort (indice_primario, (num+1), sizeof(Ip), compare_ind);
+		qsort (indice_primario, (num+1), sizeof(Ip), compare_ind_Qsort);
 
 		return 1;
 	}
@@ -481,14 +509,18 @@ int inserir_Pindex (Ip *indice_primario, char *index, int num) {
 
 /* ÍNDICES SECUNDÁRIOS */
 void inserir_Cat (Ir **categoria, char *cat, char *P_index, int *num) {
-	char *copy = cat;
+	//Copia a string
+	char *copy = (char *) malloc ((strlen(cat)+1) * sizeof(char));
+	strcpy(copy, cat);
 	char *token = strtok(copy, "|");
 
 	//Separa a string de categorias em vários tokens e cria o arquivo de índices de categorias
 	while (token) {
-		inserir_Sindex(categoria, token, P_index, num);
+		inserir_ListaInvertida(categoria, token, P_index, num);
 		token = strtok(NULL, "|");
 	}
+
+	free(copy);
 }
 
 void inserir_Preco (Ir **precos, char *Sec_index, char *P_index, int *num, char *desconto) {
@@ -502,11 +534,11 @@ void inserir_Preco (Ir **precos, char *Sec_index, char *P_index, int *num, char 
 	char comDesconto[TAM_PRECO];
 
 	sprintf(comDesconto, "%07.2f", preco);
-	inserir_Sindex (precos, comDesconto, P_index, num);
+	inserir_ListaInvertida (precos, comDesconto, P_index, num);
 }
 
-void inserir_Sindex (Ir **indice_secundario, char *Sec_index, char *P_index, int *num) {
-	Ir *found = bsearch(Sec_index, (*indice_secundario), (*num), sizeof(Ir), compare_Sind);
+void inserir_ListaInvertida (Ir **indice_secundario, char *Sec_index, char *P_index, int *num) {
+	Ir *found = bsearch(Sec_index, (*indice_secundario), (*num), sizeof(Ir), compare_Sind_Bsearch);
 	int flag = 0;
 
 	//Para o caso de ser um novo índice secundário
@@ -528,7 +560,7 @@ void inserir_Sindex (Ir **indice_secundario, char *Sec_index, char *P_index, int
 
 	//Reordena o vetor
 	if (flag)
-		qsort((*indice_secundario), (*num), sizeof(Ir), compare_Sind);
+		qsort((*indice_secundario), (*num), sizeof(Ir), compare_Sind_Qsort);
 }
 
 /* ÍNDICES PRIMÁRIOS REFERENCIADOS */
@@ -541,24 +573,27 @@ void insere_novoNo (ll **lista, ll *novo_no) {
 	} else {
 
 		//Insere o elemento na lista segundo ordem alfabética
-		ll *ant = (*lista);
+		ll *ant = NULL;
+		ll *aux = (*lista);
 
-		while (ant->prox && strcmp(ant->prox->pk, novo_no->pk) < 0)
-			ant = ant->prox;
+		while (aux && strcmp(aux->pk, novo_no->pk) < 0) {
+			ant = aux;
+			aux = aux->prox;
+		}
 
 		//Chegou ao fim da fila
-		if (ant->prox == NULL) {
-			//Caso de fila com um único elemento
-			if (strcmp(ant->pk, novo_no->pk) < 0) {
-				novo_no->prox = NULL;
-				ant->prox = novo_no;
-			} else {
-				novo_no->prox = ant;
-				ant->prox = NULL;
-				(*lista) = novo_no;
-			}
-		} else {
-			novo_no->prox = ant->prox;
+		if (aux == NULL) {
+			novo_no->prox = NULL;
+			ant->prox = novo_no;
+		}
+		//Caso contrário, verifica se vai inserir no começo da lista
+		else if (!ant) {
+			(*lista) = novo_no;
+			novo_no->prox = aux;
+		}
+		//Caso contrário, insere no meio da lista
+		else {
+			novo_no->prox = aux;
 			ant->prox = novo_no;
 		}
 	}
@@ -591,16 +626,16 @@ void remove_No (ll **lista, char *P_index) {
 /* BUSCAS */
 //Dada uma chave primária, encontra o rrn correspondente a ela
 int recuperar_rrn(Ip* iprimary, const char* pk, int nregistros) {
-	Ip *search = bsearch(pk, iprimary, nregistros, sizeof(Ip), compare_ind);
+	Ip *search = bsearch(pk, iprimary, nregistros, sizeof(Ip), compare_ind_Bsearch);
 
 	if (search != NULL)	return search->rrn;
-	else return 0;
+	else return -1;
 }
 
 //Dada uma chave secundária, retorna um ponteiro para o registro de chave secundária
 //correspondente. Se não for encontrado, retorna NULL
-Ir *recuperar_IS(Ir *indice_secundario, char *key, int num) {
-	Ir *ret = bsearch (key, indice_secundario, num, sizeof(Ir), compare_Sind);
+Ir *recuperar_ListaInvertida(Ir *indice_secundario, char *key, int num) {
+	Ir *ret = bsearch (key, indice_secundario, num, sizeof(Ir), compare_Sind_Bsearch);
 
 	return ret;
 }
@@ -618,6 +653,7 @@ int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros) {
 		exibir_registro(recuperar_rrn(indice_primario, aux->pk, nregistros), 0);
 
 		aux = aux->prox;
+		if (aux) printf("\n");
 	}
 
 	return 1;
