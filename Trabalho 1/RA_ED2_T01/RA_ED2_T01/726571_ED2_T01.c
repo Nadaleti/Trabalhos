@@ -69,10 +69,10 @@ typedef struct primary_index{
 
 /*	Você deve optar por utilizar índices secundários simples, ou listas invertidas.
  *  Seguem abaixo sugestões para suas EDs*/
-//Struct para índice secundário comum:
+//Struct para índice secundário comum; usado apenas para preço com desconto
 typedef struct secundary_index{
    char pk[TAM_PRIMARY_KEY];
-   char *chave;
+   char chave[TAM_PRECO];
  } Is;
 
 //Lista ligada simples para a lista invertida:
@@ -132,7 +132,7 @@ int compare_Sind_Qsort (const void *actual, const void *search);
 //Função para comparação de valores
 int max (int a, int b);
 
-/* Funções para índices secundários */
+/* Funções para índices secundários com lista invertida */
 //Insere novo IS se esse não existir previamente, senão insere novo IP na lista
 //invertida do IS passado
 void inserir_ListaInvertida (Ir **indice_secundario, char *Sec_index, char *P_index, int *num);
@@ -148,14 +148,24 @@ Ir *recuperar_ListaInvertida(Ir *indice_secundario, char *key, int num);
 //Exibe os índices primários associados a um título
 int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros);
 
-//Rotinas para lista invertida (índices primários referenciados)
+//Lista os elementos da lista invertida desejada
+int listar_ListaInvertida (Ir *indice_secundario, Ip *indice_primario, int nregistros, int nSecIndex);
+
+/* Rotinas para lista invertida (índices primários referenciados) */
 //Insere novo índice primário referenciado, em ordem lexicográfica
 void insere_novoNo (ll **lista, ll *novo_no);
 
 //Remove o índice desejado da lista de índices primários referenciados
 void remove_No (ll **lista, char *P_index);
 
-//Outras funções
+/* Funções para índices secundários simples */
+//Função de comparação para qsort
+int compare_Sind_simples (const void *actual, const void *search);
+
+//Inserção no vetor de índices secundários simples
+void inserir_IS (Is *indice_secundario, char *price, char *desc, char *pk, int *num);
+
+/* Funções de manipulação do arquivo de dados */
 //Insere um novo registro no arquivo de dados
 void insere_Arq (Jogo titulo, int nregistros);
 
@@ -181,13 +191,13 @@ int main(){
 		perror(MEMORIA_INSUFICIENTE);
 		exit(1);
 	}
-	//criar_iprimary(iprimary, nregistros);
+	criar_iprimary(iprimary, nregistros);
 
 	/* Alocar e criar índices secundários */
 	Ir *igame = (Ir *) malloc (sizeof(Ir));
 	Ir *idev = (Ir *) malloc (sizeof(Ir));
 	Ir *icat = (Ir *) malloc (sizeof(Ir));
-	Is *iprice = (Is *) malloc (sizeof(Ir));
+	Is *iprice = (Is *) malloc (MAX_REGISTROS * sizeof(Is));
 
 	//Cria índices a partir do arquivo
 
@@ -209,62 +219,10 @@ int main(){
 				/* INSERÇÃO ÍNDICES SECUNDÁRIOS -> INSERÇÃO LISTA INVERTIDA */
 				inserir_ListaInvertida (&igame, titulo->nome, titulo->pk, &ngame);
 				inserir_ListaInvertida (&idev, titulo->desenvolvedora, titulo->pk, &ndev);
-
 				inserir_Cat (&icat, titulo->categoria, titulo->pk, &ncat);
-				//inserir_Preco (&iprice, titulo->preco, titulo->pk, &nprice, titulo->desconto);
 
-				//Imprimir índices primários
-				// printf("===== IPRIMARY =====\n");
-				// for (i = 0; i < nregistros; i++)
-				// 	printf("\n%s\n", iprimary[i].pk);
-				//
-				// //Imprimir índices secundários e suas listas
-				// printf("===== IGAME =====\n");
-				// for (i = 0; i < ngame; i++) {
-				// 	printf("\n%s\n", igame[i].chave);
-				// 	aux = igame[i].lista;
-				// 	while (aux != NULL) {
-				// 		printf("\t%s\n", aux->pk);
-				// 		aux = aux->prox;
-				// 	}
-				// }
-				//
-				// aux = NULL;
-				//
-				// printf("===== IDEV =====\n");
-				// for (i = 0; i < ndev; i++) {
-				// 	printf("\n%s\n", idev[i].chave);
-				// 	aux = idev[i].lista;
-				// 	while (aux != NULL) {
-				// 		printf("\t%s\n", aux->pk);
-				// 		aux = aux->prox;
-				// 	}
-				// }
-				//
-				// aux = NULL;
-				//
-				// printf("===== ICAT =====\n");
-				// for (i = 0; i < ncat; i++) {
-				// 	printf("\n%s\n", icat[i].chave);
-				// 	aux = icat[i].lista;
-				// 	while (aux != NULL) {
-				// 		printf("\t%s\n", aux->pk);
-				// 		aux = aux->prox;
-				// 	}
-				// }
-				//
-				// aux = NULL;
-				// printf("===== IPRICE =====\n");
-				// for (i = 0; i < nprice; i++) {
-				// 	printf("\n%s\n", iprice[i].chave);
-				// 	aux = iprice[i].lista;
-				// 	while (aux != NULL) {
-				// 		printf("\t%s\n", aux->pk);
-				// 		aux = aux->prox;
-				// 	}
-				// }
-				//
-				// aux = NULL;
+				/* INSERÇÃO EM ÍNDICES SECUNDÁRIOS -> INSERÇÃO DE ÍNDICE SIMPLES */
+				inserir_IS (iprice, titulo->preco, titulo->desconto, titulo->pk, &nprice);
 
 				nregistros++;
 			} else
@@ -290,7 +248,7 @@ int main(){
 		case 4:
 			/* buscar */
 			printf(INICIO_BUSCA );
-			scanf("%d\n", &tipo);
+			scanf("%d", &tipo); getchar();
 
 			//Busca por índice primário
 			if (tipo == 1) {
@@ -321,7 +279,23 @@ int main(){
 		case 5:
 			/* listar */
 			printf(INICIO_LISTAGEM);
+			scanf("%d", &tipo); getchar();
 
+			//Listagem por código
+			if (tipo == 1) {
+				if (!nregistros) printf(REGISTRO_N_ENCONTRADO);
+				else
+					for (i = 0; i < nregistros; i++) {
+						exibir_registro(iprimary[i].rrn, 0);
+						if (i + 1 < nregistros) printf("\n");
+					}
+			}
+
+			//Listagem por desenvolvedora
+			else if (tipo == 3) {
+				if (!listar_ListaInvertida (idev, iprimary, nregistros, ndev))
+					printf(REGISTRO_N_ENCONTRADO);
+			}
 			break;
 		case 6:
 			/* liberar espaco */
@@ -420,7 +394,7 @@ int max (int a, int b) {
 	return b;
 }
 
-/* OUTRAS FUNÇÕES */
+/* FUNÇÕES DE MANIPULAÇÃO DE ARQUIVO*/
 void ler_entrada (Jogo **titulo) {
 	//Recebe todos os dados do jogo
 	scanf ("%[^\n]", (*titulo)->nome); getchar();
@@ -465,13 +439,12 @@ void insere_Arq (Jogo titulo, int nregistros) {
 Jogo recuperar_registro(int rrn) {
 	Jogo j;
 
-	char copy[192];
+	char copy[193];
 	char *arq = ARQUIVO;
 	int i = rrn * 192;
 
 	//Realiza a cópia do registro encontrado no arquivo de dados
-	while (arq[i] != '#')
-		copy[i - (rrn * 192)] = arq[i++];
+	strncpy(copy, &arq[i], 192); copy[193] = '\0';
 
 	strcpy (j.nome, strtok(copy, "@"));
 	strcpy (j.desenvolvedora, strtok(NULL, "@"));
@@ -488,6 +461,23 @@ Jogo recuperar_registro(int rrn) {
 }
 
 /* ÍNDICES PRIMÁRIOS */
+
+//Cria os índices primários a partir dos registros lidos do arquivo
+void criar_iprimary(Ip *indice_primario, int nregistros) {
+	int i;
+	Jogo j;
+
+	//Lê um registro, cria o índice primário e insere no arquivo de índices primários
+	for (i = 0; i < nregistros; i++) {
+		j = recuperar_registro(i);
+
+		//Verificação de índice repetido
+		if (!inserir_Pindex(indice_primario, j->pk, i))
+			printf(ERRO_PK_REPETIDA, j->pk);
+	}
+}
+
+//Dado uma struct de indice primário, insere e ordena no vetor
 int inserir_Pindex (Ip *indice_primario, char *index, int num) {
 	//Realiza a busca binária e retorna o ponteiro para a posição do índice, se existir
 	if (num && bsearch (index, indice_primario, num, sizeof(Ip), compare_ind_Bsearch)) {
@@ -519,8 +509,6 @@ void inserir_Cat (Ir **categoria, char *cat, char *P_index, int *num) {
 		inserir_ListaInvertida(categoria, token, P_index, num);
 		token = strtok(NULL, "|");
 	}
-
-	free(copy);
 }
 
 void inserir_Preco (Ir **precos, char *Sec_index, char *P_index, int *num, char *desconto) {
@@ -582,16 +570,16 @@ void insere_novoNo (ll **lista, ll *novo_no) {
 		}
 
 		//Chegou ao fim da fila
-		if (aux == NULL) {
-			novo_no->prox = NULL;
-			ant->prox = novo_no;
-		}
+		// if (aux == NULL) {
+		// 	novo_no->prox = NULL;
+		// 	ant->prox = novo_no;
+		// }
 		//Caso contrário, verifica se vai inserir no começo da lista
-		else if (!ant) {
+		if (!ant) {
 			(*lista) = novo_no;
 			novo_no->prox = aux;
 		}
-		//Caso contrário, insere no meio da lista
+		//Caso contrário, insere no meio da lista e fim da lista
 		else {
 			novo_no->prox = aux;
 			ant->prox = novo_no;
@@ -643,18 +631,66 @@ Ir *recuperar_ListaInvertida(Ir *indice_secundario, char *key, int num) {
 //Busca e exibe os índices primários associados a um título de jogo
 int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros) {
 	//Retorna 0 se o jogo não for encontrado
-	if (!game) return 0;
+	if (!game || !game->lista) return 0;
 
 	ll *aux = game->lista;
-	Ip *pk;
 
 	//Percorre toda a lista invertida exibindo os jogos
-	while (aux) {
+	while (aux != NULL) {
 		exibir_registro(recuperar_rrn(indice_primario, aux->pk, nregistros), 0);
 
 		aux = aux->prox;
-		if (aux) printf("\n");
+		if (aux != NULL) printf("\n");
 	}
 
 	return 1;
+}
+
+//Listagem de índices em lista invertida
+int listar_ListaInvertida (Ir *indice_secundario, Ip *indice_primario, int nregistros, int nSecIndex) {
+	int i, contInexistentes = 0;
+
+	//Imprime os jogos em ordem alfabética de índice secundário e, com relação às listas,
+	//imprime em ordem alfabética de código
+	for (i = 0; i < nSecIndex; i++) {
+
+		//Contabiliza os índices secundários que não possuem lista de jogos
+		if (!exibir_ListaInvertida(&indice_secundario[i], indice_primario, nregistros))
+			contInexistentes++;
+		else if (i + 1 < nSecIndex) printf("\n");
+	}
+
+	//Retorna 0 se todos os índices não possuírem lista e um número maior que 0 caso contrário
+	return (nSecIndex - contInexistentes);
+}
+
+/* FUNÇÕES PARA ÍNDICE SECUNDÁRIO SIMPLES */
+
+int compare_Sind_simples (const void *actual, const void *search) {
+	int ret = strcmp(((Is *)actual)->chave, ((Is *)search)->chave);
+	if (!ret)
+		return strcmp(((Is *)actual)->pk, ((Is *)search)->pk);
+	else
+		return ret;
+}
+
+void inserir_IS (Is *indice_secundario, char *price, char *desc, char *pk, int *num) {
+	int i = *num;
+	char comDesconto[TAM_PRECO];
+
+	//Lê o preço, aplica do desconto e salva na string
+	int desconto;
+	double novoPreco;
+	sscanf(price, "%lf", &novoPreco);
+	sscanf(desc, "%d", &desconto);
+	novoPreco = novoPreco * (1 - ((float)desconto/100));
+
+	//Insere o novo elemento na primeira posição livre do vetor de índices secundários
+	sprintf(indice_secundario[i].chave, "%07.2lf", novoPreco); indice_secundario[i].chave[TAM_PRECO-1] = '\0';
+	strcpy (indice_secundario[i].pk, pk); indice_secundario[i].pk[TAM_PRIMARY_KEY-1] = '\0';
+
+	(*num) = (*num) + 1;
+
+	//Reordena o vetor usando qsort
+	qsort(indice_secundario, (*num), sizeof(Is), compare_Sind_simples);
 }
