@@ -132,12 +132,18 @@ int compare_Sind_Qsort (const void *actual, const void *search);
 //Função para comparação de valores
 int max (int a, int b);
 
-/* Funções para índices secundários com lista invertida */
+/* Funções para índices secundários */
+//Dado um arquivo de entrada, lê todos os registros e insere no arquivo de índices secundários
+void criar_IndicesSecundarios (Ir **igame, Ir **idev, Ir **icat, Is *iprice, int *ngame, int *ndev, int *ncat, int *nprice, int nregistros);
+
+/* Funções para índices secunários com lista invertida */
 //Insere novo IS se esse não existir previamente, senão insere novo IP na lista
 //invertida do IS passado
 void inserir_ListaInvertida (Ir **indice_secundario, char *Sec_index, char *P_index, int *num);
 void inserir_Cat (Ir **categoria, char *cat, char *P_index, int *num);
-void inserir_Preco (Ir **precos, char *Sec_index, char *P_index, int *num, char *desconto);
+
+//Inserção no vetor de índices secundários simples
+void inserir_IS (Is *indice_secundario, char *price, char *desc, char *pk, int *num);
 
 //Remove índice primário da lista invertida do IS passado
 int remover_ListaInvertida (Ir *indice_secundario, char *Sec_index, char *P_index);
@@ -161,9 +167,6 @@ void remove_No (ll **lista, char *P_index);
 /* Funções para índices secundários simples */
 //Função de comparação para qsort
 int compare_Sind_simples (const void *actual, const void *search);
-
-//Inserção no vetor de índices secundários simples
-void inserir_IS (Is *indice_secundario, char *price, char *desc, char *pk, int *num);
 
 /* Funções de manipulação do arquivo de dados */
 //Insere um novo registro no arquivo de dados
@@ -199,7 +202,8 @@ int main(){
 	Ir *icat = (Ir *) malloc (sizeof(Ir));
 	Is *iprice = (Is *) malloc (MAX_REGISTROS * sizeof(Is));
 
-	//Cria índices a partir do arquivo
+	//Cria índices secundários a partir do arquivo
+	criar_IndicesSecundarios (&igame, &idev, &icat, iprice, &ngame, &ndev, &ncat, &nprice, nregistros);
 
     /* Execução do programa */
 	int opcao = 0, i;
@@ -273,6 +277,8 @@ int main(){
 
 				//Lê a categoria que deseja-se buscar
 				scanf("%s", titulo->categoria); getchar();
+
+				//Realiza a busca
 			}
 
 			break;
@@ -472,8 +478,8 @@ void criar_iprimary(Ip *indice_primario, int nregistros) {
 		j = recuperar_registro(i);
 
 		//Verificação de índice repetido
-		if (!inserir_Pindex(indice_primario, j->pk, i))
-			printf(ERRO_PK_REPETIDA, j->pk);
+		if (!inserir_Pindex(indice_primario, j.pk, i))
+			printf(ERRO_PK_REPETIDA, j.pk);
 	}
 }
 
@@ -509,20 +515,6 @@ void inserir_Cat (Ir **categoria, char *cat, char *P_index, int *num) {
 		inserir_ListaInvertida(categoria, token, P_index, num);
 		token = strtok(NULL, "|");
 	}
-}
-
-void inserir_Preco (Ir **precos, char *Sec_index, char *P_index, int *num, char *desconto) {
-	float preco;
-	int desc;
-
-	sscanf(Sec_index, "%f", &preco);
-	sscanf(desconto, "%d", &desc);
-	//Calcula o valor do jogo com o desconto aplicado
-	preco = preco * (1 - ((float)desc/100));
-	char comDesconto[TAM_PRECO];
-
-	sprintf(comDesconto, "%07.2f", preco);
-	inserir_ListaInvertida (precos, comDesconto, P_index, num);
 }
 
 void inserir_ListaInvertida (Ir **indice_secundario, char *Sec_index, char *P_index, int *num) {
@@ -676,7 +668,6 @@ int compare_Sind_simples (const void *actual, const void *search) {
 
 void inserir_IS (Is *indice_secundario, char *price, char *desc, char *pk, int *num) {
 	int i = *num;
-	char comDesconto[TAM_PRECO];
 
 	//Lê o preço, aplica do desconto e salva na string
 	int desconto;
@@ -693,4 +684,27 @@ void inserir_IS (Is *indice_secundario, char *price, char *desc, char *pk, int *
 
 	//Reordena o vetor usando qsort
 	qsort(indice_secundario, (*num), sizeof(Is), compare_Sind_simples);
+}
+
+//Insere índice secundário quando recebe um arquivo de Dados
+void criar_IndicesSecundarios (Ir **igame, Ir **idev, Ir **icat, Is *iprice, int *ngame, int *ndev, int *ncat, int *nprice, int nregistros) {
+	int i;
+	Jogo j;
+
+	//Lê um registro e insere no arquivo de índices secundários
+	for (i = 0; i < nregistros; i++) {
+		j = recuperar_registro(i);
+
+		//Inserção de título
+		inserir_ListaInvertida (igame, j.nome, j.pk, ngame);
+
+		//Inserção de desenvolvedora
+		inserir_ListaInvertida (idev, j.desenvolvedora, j.pk, ndev);
+
+		//Inserção de categoria
+		inserir_Cat (icat, j.categoria, j.pk, ncat);
+
+		//Inserção de preço com desconto
+		inserir_IS (iprice, j.preco, j.desconto, j.pk, nprice);
+	}
 }
