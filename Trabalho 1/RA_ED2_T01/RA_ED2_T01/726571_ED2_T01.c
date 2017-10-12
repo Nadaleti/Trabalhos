@@ -154,8 +154,9 @@ Ir *recuperar_ListaInvertida(Ir *indice_secundario, char *key, int num);
 //Exibe os índices primários associados a um título
 int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros);
 
-//Lista os elementos da lista invertida desejada
+/* Funções para listagem */
 int listar_ListaInvertida (Ir *indice_secundario, Ip *indice_primario, int nregistros, int nSecIndex);
+int listar_precos (Is *iprice, Ip *indice_primario, int nregistros, int nprice);
 
 /* Rotinas para lista invertida (índices primários referenciados) */
 //Insere novo índice primário referenciado, em ordem lexicográfica
@@ -279,6 +280,10 @@ int main(){
 				scanf("%s", titulo->categoria); getchar();
 
 				//Realiza a busca
+				// if (!buscaDevCat(iprimary, titulo->categoria, titulo->desenvolvedora)) {
+				//
+				// } else
+					printf(REGISTRO_N_ENCONTRADO);
 			}
 
 			break;
@@ -297,9 +302,21 @@ int main(){
 					}
 			}
 
+			//Listagem por categoria
+			else if (tipo == 2) {
+				if (!listar_ListaInvertida (icat, iprimary, nregistros, ncat))
+					printf(REGISTRO_N_ENCONTRADO);
+			}
+
 			//Listagem por desenvolvedora
 			else if (tipo == 3) {
 				if (!listar_ListaInvertida (idev, iprimary, nregistros, ndev))
+					printf(REGISTRO_N_ENCONTRADO);
+			}
+
+			//Listagem por preço
+			else if (tipo == 4) {
+				if (!listar_precos (iprice, iprimary, nregistros, nprice))
 					printf(REGISTRO_N_ENCONTRADO);
 			}
 			break;
@@ -504,6 +521,30 @@ int inserir_Pindex (Ip *indice_primario, char *index, int num) {
 }
 
 /* ÍNDICES SECUNDÁRIOS */
+
+//Insere índice secundário quando recebe um arquivo de Dados
+void criar_IndicesSecundarios (Ir **igame, Ir **idev, Ir **icat, Is *iprice, int *ngame, int *ndev, int *ncat, int *nprice, int nregistros) {
+	int i;
+	Jogo j;
+
+	//Lê um registro e insere no arquivo de índices secundários
+	for (i = 0; i < nregistros; i++) {
+		j = recuperar_registro(i);
+
+		//Inserção de título
+		inserir_ListaInvertida (igame, j.nome, j.pk, ngame);
+
+		//Inserção de desenvolvedora
+		inserir_ListaInvertida (idev, j.desenvolvedora, j.pk, ndev);
+
+		//Inserção de categoria
+		inserir_Cat (icat, j.categoria, j.pk, ncat);
+
+		//Inserção de preço com desconto
+		inserir_IS (iprice, j.preco, j.desconto, j.pk, nprice);
+	}
+}
+
 void inserir_Cat (Ir **categoria, char *cat, char *P_index, int *num) {
 	//Copia a string
 	char *copy = (char *) malloc ((strlen(cat)+1) * sizeof(char));
@@ -561,11 +602,6 @@ void insere_novoNo (ll **lista, ll *novo_no) {
 			aux = aux->prox;
 		}
 
-		//Chegou ao fim da fila
-		// if (aux == NULL) {
-		// 	novo_no->prox = NULL;
-		// 	ant->prox = novo_no;
-		// }
 		//Caso contrário, verifica se vai inserir no começo da lista
 		if (!ant) {
 			(*lista) = novo_no;
@@ -603,59 +639,6 @@ void remove_No (ll **lista, char *P_index) {
 	}
 }
 
-/* BUSCAS */
-//Dada uma chave primária, encontra o rrn correspondente a ela
-int recuperar_rrn(Ip* iprimary, const char* pk, int nregistros) {
-	Ip *search = bsearch(pk, iprimary, nregistros, sizeof(Ip), compare_ind_Bsearch);
-
-	if (search != NULL)	return search->rrn;
-	else return -1;
-}
-
-//Dada uma chave secundária, retorna um ponteiro para o registro de chave secundária
-//correspondente. Se não for encontrado, retorna NULL
-Ir *recuperar_ListaInvertida(Ir *indice_secundario, char *key, int num) {
-	Ir *ret = bsearch (key, indice_secundario, num, sizeof(Ir), compare_Sind_Bsearch);
-
-	return ret;
-}
-
-//Busca e exibe os índices primários associados a um título de jogo
-int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros) {
-	//Retorna 0 se o jogo não for encontrado
-	if (!game || !game->lista) return 0;
-
-	ll *aux = game->lista;
-
-	//Percorre toda a lista invertida exibindo os jogos
-	while (aux != NULL) {
-		exibir_registro(recuperar_rrn(indice_primario, aux->pk, nregistros), 0);
-
-		aux = aux->prox;
-		if (aux != NULL) printf("\n");
-	}
-
-	return 1;
-}
-
-//Listagem de índices em lista invertida
-int listar_ListaInvertida (Ir *indice_secundario, Ip *indice_primario, int nregistros, int nSecIndex) {
-	int i, contInexistentes = 0;
-
-	//Imprime os jogos em ordem alfabética de índice secundário e, com relação às listas,
-	//imprime em ordem alfabética de código
-	for (i = 0; i < nSecIndex; i++) {
-
-		//Contabiliza os índices secundários que não possuem lista de jogos
-		if (!exibir_ListaInvertida(&indice_secundario[i], indice_primario, nregistros))
-			contInexistentes++;
-		else if (i + 1 < nSecIndex) printf("\n");
-	}
-
-	//Retorna 0 se todos os índices não possuírem lista e um número maior que 0 caso contrário
-	return (nSecIndex - contInexistentes);
-}
-
 /* FUNÇÕES PARA ÍNDICE SECUNDÁRIO SIMPLES */
 
 int compare_Sind_simples (const void *actual, const void *search) {
@@ -686,25 +669,69 @@ void inserir_IS (Is *indice_secundario, char *price, char *desc, char *pk, int *
 	qsort(indice_secundario, (*num), sizeof(Is), compare_Sind_simples);
 }
 
-//Insere índice secundário quando recebe um arquivo de Dados
-void criar_IndicesSecundarios (Ir **igame, Ir **idev, Ir **icat, Is *iprice, int *ngame, int *ndev, int *ncat, int *nprice, int nregistros) {
-	int i;
-	Jogo j;
+/* BUSCAS */
+//Dada uma chave primária, encontra o rrn correspondente a ela
+int recuperar_rrn(Ip* iprimary, const char* pk, int nregistros) {
+	Ip *search = bsearch(pk, iprimary, nregistros, sizeof(Ip), compare_ind_Bsearch);
 
-	//Lê um registro e insere no arquivo de índices secundários
-	for (i = 0; i < nregistros; i++) {
-		j = recuperar_registro(i);
+	if (search != NULL)	return search->rrn;
+	else return -1;
+}
 
-		//Inserção de título
-		inserir_ListaInvertida (igame, j.nome, j.pk, ngame);
+//Dada uma chave secundária, retorna um ponteiro para o registro de chave secundária
+//correspondente. Se não for encontrado, retorna NULL
+Ir *recuperar_ListaInvertida(Ir *indice_secundario, char *key, int num) {
+	Ir *ret = bsearch (key, indice_secundario, num, sizeof(Ir), compare_Sind_Bsearch);
 
-		//Inserção de desenvolvedora
-		inserir_ListaInvertida (idev, j.desenvolvedora, j.pk, ndev);
+	return ret;
+}
 
-		//Inserção de categoria
-		inserir_Cat (icat, j.categoria, j.pk, ncat);
+/* FUNÇÕES PARA LISTAGEM */
+//Busca e exibe os índices primários associados a um título de jogo
+int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros) {
+	//Retorna 0 se o jogo não for encontrado
+	if (!game || !game->lista) return 0;
 
-		//Inserção de preço com desconto
-		inserir_IS (iprice, j.preco, j.desconto, j.pk, nprice);
+	ll *aux = game->lista;
+
+	//Percorre toda a lista invertida exibindo os jogos
+	while (aux != NULL) {
+		exibir_registro(recuperar_rrn(indice_primario, aux->pk, nregistros), 0);
+
+		aux = aux->prox;
+		if (aux != NULL) printf("\n");
 	}
+
+	return 1;
+}
+
+//Listagem de índices em lista invertida
+int listar_ListaInvertida (Ir *indice_secundario, Ip *indice_primario, int nregistros, int nSecIndex) {
+	int i, contInexistentes = 0;
+
+	//Imprime os jogos em ordem alfabética de índice secundário e, com relação às listas,
+	//imprime em ordem alfabética de código
+	for (i = 0; i < nSecIndex; i++) {
+		//Contabiliza os índices secundários que não possuem lista de jogos
+		if (!exibir_ListaInvertida(&indice_secundario[i], indice_primario, nregistros))
+			contInexistentes++;
+		else if (i + 1 < nSecIndex) printf("\n");
+	}
+
+	//Retorna 0 se todos os índices não possuírem lista e um número maior que 0 caso contrário
+	return (nSecIndex - contInexistentes);
+}
+
+int listar_precos (Is *iprice, Ip *indice_primario, int nregistros, int nprice) {
+	//Caso não tenha elementos no vetor
+	if (!nprice) return 0;
+
+	//Busca por chave primária e exibe o índice
+	int i;
+	for (i = 0; i < nprice; i++) {
+		exibir_registro(recuperar_rrn(indice_primario, iprice[i].pk, nregistros), 1);
+		if (i + 1 < nprice) printf("\n");
+	}
+
+	return 1;
 }
