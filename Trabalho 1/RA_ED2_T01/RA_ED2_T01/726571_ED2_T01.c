@@ -158,6 +158,9 @@ int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros);
 int listar_ListaInvertida (Ir *indice_secundario, Ip *indice_primario, int nregistros, int nSecIndex);
 int listar_precos (Is *iprice, Ip *indice_primario, int nregistros, int nprice);
 
+/* Funções para busca */
+int buscaDevCat(Ip *indice_primario, Ir *icat, Ir *idev, char *cat, char *dev, int ncat, int ndev, int nregistros);
+
 /* Rotinas para lista invertida (índices primários referenciados) */
 //Insere novo índice primário referenciado, em ordem lexicográfica
 void insere_novoNo (ll **lista, ll *novo_no);
@@ -278,11 +281,8 @@ int main(){
 
 				//Lê a categoria que deseja-se buscar
 				scanf("%s", titulo->categoria); getchar();
-
 				//Realiza a busca
-				// if (!buscaDevCat(iprimary, titulo->categoria, titulo->desenvolvedora)) {
-				//
-				// } else
+				if (!buscaDevCat(iprimary, icat, idev, titulo->categoria, titulo->desenvolvedora, ncat, ndev, nregistros))
 					printf(REGISTRO_N_ENCONTRADO);
 			}
 
@@ -545,6 +545,7 @@ void criar_IndicesSecundarios (Ir **igame, Ir **idev, Ir **icat, Is *iprice, int
 	}
 }
 
+/* ÍNDICES SECUNDÁRIOS - LISTA INVERTIDA */
 void inserir_Cat (Ir **categoria, char *cat, char *P_index, int *num) {
 	//Copia a string
 	char *copy = (char *) malloc ((strlen(cat)+1) * sizeof(char));
@@ -585,6 +586,7 @@ void inserir_ListaInvertida (Ir **indice_secundario, char *Sec_index, char *P_in
 }
 
 /* ÍNDICES PRIMÁRIOS REFERENCIADOS */
+
 //Insere novo nó na lista de índices primários
 void insere_novoNo (ll **lista, ll *novo_no) {
 	//Verifica se a lista está vazia
@@ -602,12 +604,12 @@ void insere_novoNo (ll **lista, ll *novo_no) {
 			aux = aux->prox;
 		}
 
-		//Caso contrário, verifica se vai inserir no começo da lista
+		//Verifica se vai inserir no começo da lista
 		if (!ant) {
 			(*lista) = novo_no;
 			novo_no->prox = aux;
 		}
-		//Caso contrário, insere no meio da lista e fim da lista
+		//Caso contrário, insere no meio da lista ou fim da lista
 		else {
 			novo_no->prox = aux;
 			ant->prox = novo_no;
@@ -639,7 +641,7 @@ void remove_No (ll **lista, char *P_index) {
 	}
 }
 
-/* FUNÇÕES PARA ÍNDICE SECUNDÁRIO SIMPLES */
+/* ÍNDICE SECUNDÁRIO SIMPLES */
 
 int compare_Sind_simples (const void *actual, const void *search) {
 	int ret = strcmp(((Is *)actual)->chave, ((Is *)search)->chave);
@@ -684,6 +686,39 @@ Ir *recuperar_ListaInvertida(Ir *indice_secundario, char *key, int num) {
 	Ir *ret = bsearch (key, indice_secundario, num, sizeof(Ir), compare_Sind_Bsearch);
 
 	return ret;
+}
+
+int buscaDevCat(Ip *indice_primario, Ir *icat, Ir *idev, char *cat, char *dev, int ncat, int ndev, int nregistros) {
+	//Recupera as listas invertidas da categoria e desenvolvedora em questão
+	Ir *categ = recuperar_ListaInvertida(icat, cat, ncat);
+	Ir *desenv = recuperar_ListaInvertida(idev, dev, ndev);
+	ll *lista_cat = categ->lista, *lista_dev = desenv->lista;
+
+	int match = 0, ret = 0;
+	//Compara os elementos das listas buscando por pks iguais
+	while (lista_cat->prox || lista_dev->prox) {
+		ret = strcmp(lista_cat->pk, lista_dev->pk);
+		//Compara os elementos: se for igual, imprime o registro e movimenta os dois ponteiros de lista
+		//Se for diferente, movimenta o ponteiro da lista cujo elemento é o menor entre os dois comparados
+		if (!ret) {
+			match = 1;
+			exibir_registro(recuperar_rrn(indice_primario, lista_cat->pk, nregistros), 0);
+
+			//Se não for NULL, passa para o próximo elemento da lista
+			if (lista_cat->prox) lista_cat = lista_cat->prox;
+			if (lista_dev->prox) lista_dev = lista_dev->prox;
+
+		} else if (lista_cat->prox && ret < 0)
+			lista_cat = lista_cat->prox;
+		else if (lista_dev->prox && ret > 0)
+			lista_dev = lista_dev->prox;
+
+		//Caso uma das listas já tenha finalizado e o menor elemento ainda seja pertencente a
+		//essa lista, o laço é interrompido pois não há mais necessidade de comparação
+		else if ((lista_cat->prox && ret > 0) || (lista_dev->prox && ret < 0)) break;
+	}
+
+	return match;
 }
 
 /* FUNÇÕES PARA LISTAGEM */
