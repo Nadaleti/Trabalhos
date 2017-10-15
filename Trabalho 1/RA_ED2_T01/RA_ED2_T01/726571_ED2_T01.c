@@ -132,7 +132,7 @@ int compare_IS_Bsearch (const void *actual, const void *search);
 int max (int a, int b);
 
 //Funções de conversão (para funções que manipulam o preco)
-double str2double (char *string);
+float str2float (char *string);
 int str2int (char *string);
 
 /* Funções para índices secundários */
@@ -156,6 +156,7 @@ int exibir_ListaInvertida(Ir *game, Ip *indice_primario, int nregistros);
 
 /* Funções para listagem */
 int listar_ListaInvertida (Ir *indice_secundario, Ip *indice_primario, int nregistros, int nSecIndex);
+int listar_categoria (Ir *icat, Ip *indice_primario, int nregistros, int ncat);
 int listar_precos (Is *iprice, Ip *indice_primario, int nregistros, int nprice);
 
 /* Funções para busca */
@@ -184,6 +185,10 @@ void remove_No (ll **lista, char *P_index);
 
 /* Função para limpar o arquivo */
 void limpa_arquivos (Ip **iprimary, Ir **igame, Ir **idev, Ir **icat, int *nregistros, int *ngame, int *ndev, int *ncat);
+
+/* Funções de liberação de memória */
+void free_listas (ll **lista); //Libera listas invertidas
+void liberar (Ip **iprimary, Is **iprice, Ir **igame, Ir **idev, Ir **icat, int ngame, int ndev, int ncat); //Libera todo o espaço alocado
 /* ==========================================================================
  * ============================ FUNÇÃO PRINCIPAL ============================
  * ======================================================================= */
@@ -192,8 +197,6 @@ int main(){
 	int tipo;
 	int carregarArquivo = 0, nregistros = 0, ncat = 0, ngame = 0, ndev = 0, nprice = 0;
 	Jogo* titulo = (Jogo *) malloc (sizeof(Jogo));
-
-	ll* aux;
 
 	scanf("%d%*c", &carregarArquivo); /* 1 (sim) | 0 (nao) */
 
@@ -306,14 +309,14 @@ int main(){
 				if (!nregistros) printf(REGISTRO_N_ENCONTRADO);
 				else
 					for (i = 0; i < nregistros; i++) {
-						exibir_registro(iprimary[i].rrn, 0);
-						if (i + 1 < nregistros) printf("\n");
+						tipo = exibir_registro(iprimary[i].rrn, 0);
+						if (i + 1 < nregistros && tipo) printf("\n");
 					}
 			}
 
 			//Listagem por categoria
 			else if (tipo == 2) {
-				if (!listar_ListaInvertida (icat, iprimary, nregistros, ncat))
+				if (!listar_categoria (icat, iprimary, nregistros, ncat))
 					printf(REGISTRO_N_ENCONTRADO);
 			}
 
@@ -338,7 +341,7 @@ int main(){
 			printf("%s\n", ARQUIVO);
 			break;
 		case 8:
-    		/* Liberar memoria e finalizar */
+    		liberar (&iprimary, &iprice, &igame, &idev, &icat, ngame, ndev, ncat); free (titulo);
 			return (0);
 			break;
 		default:
@@ -370,7 +373,9 @@ int exibir_registro(int rrn, char com_desconto) {
 	if(com_desconto){
 		sscanf(j.preco, "%f", &preco);
 		sscanf(j.desconto, "%hd", &desconto);
-		printf("%07.2f\n", preco * (100-desconto) /(float)100 );
+		float precoFinal = preco * (100 - desconto);
+		precoFinal = (int) precoFinal / 100.0;
+		printf("%07.2f\n", precoFinal);
 	}
 	else{
 		printf("%s\n", j.preco);
@@ -496,31 +501,35 @@ Jogo recuperar_registro(int rrn) {
 
 /* FUNÇÃO DE ORDENAÇÃO */
 void selectionSort (int ip, int ir, int is, Ip *iprimary, Ir *listaInvertida, Is *iprice, int num) {
-	int i, j;
+	int i, j, min = 0;
 
 	//Verifica qual opção de ordenação é desejada
 	if (ip) {
 		Ip aux;
 
 		//Selection Sort
-		for (i = 0; i < num; i++)
-			for (j = i+1; j < num; j++)
-				if (strcmp (iprimary[i].pk, iprimary[j].pk) > 0) {
-					aux = iprimary[i];
-					iprimary[i] = iprimary[j];
-					iprimary[j] = aux;
-				}
+		for (i = 0; i < num; i++) {
+			for (j = i+1, min = i; j < num; j++) {
+				if (strcmp (iprimary[i].pk, iprimary[j].pk) > 0) min = j;
+			}
+
+			aux = iprimary[i];
+			iprimary[i] = iprimary[min];
+			iprimary[min] = aux;
+		}
 	} else if (ir) {
 		Ir aux;
 
 		//Selection Sort
-		for (i = 0; i < num; i++)
-			for (j = i+1; j < num; j++)
-				if (strcmp (listaInvertida[i].chave, listaInvertida[j].chave) > 0) {
-					aux = listaInvertida[i];
-					listaInvertida[i] = listaInvertida[j];
-					listaInvertida[j] = aux;
-				}
+		for (i = 0; i < num; i++) {
+			for (j = i+1, min = i; j < num; j++) {
+				if (strcmp (listaInvertida[i].chave, listaInvertida[j].chave) > 0) min = j;
+			}
+
+			aux = listaInvertida[i];
+			listaInvertida[i] = listaInvertida[min];
+			listaInvertida[min] = aux;
+		}
 	} else if (is) {
 		Is aux;
 		int ret;
@@ -598,7 +607,7 @@ void criar_IndicesSecundarios (Ir **igame, Ir **idev, Ir **icat, Is *iprice, int
 		inserir_Cat (icat, j.categoria, j.pk, ncat);
 
 		//Inserção de preço com desconto
-		inserir_IS (iprice, j.preco, j.desconto, j.pk, nprice);
+		if (iprice != NULL) inserir_IS (iprice, j.preco, j.desconto, j.pk, nprice);
 	}
 }
 
@@ -680,13 +689,13 @@ void inserir_IS (Is *indice_secundario, char *price, char *desc, char *pk, int *
 
 	//Lê o preço, aplica do desconto e salva na string
 	int desconto;
-	double novoPreco;
-	novoPreco = str2double(price);
+	float novoPreco;
+	novoPreco = str2float(price);
 	desconto = str2int(desc);
-	novoPreco = novoPreco * (1 - ((float)desconto/100));
+	novoPreco = novoPreco * (100 - desconto); novoPreco = ((int) novoPreco)/100.0;
 
 	//Insere o novo elemento na primeira posição livre do vetor de índices secundários
-	sprintf(indice_secundario[i].chave, "%07.2lf", novoPreco); indice_secundario[i].chave[TAM_PRECO-1] = '\0';
+	sprintf(indice_secundario[i].chave, "%07.2f", novoPreco); indice_secundario[i].chave[TAM_PRECO-1] = '\0';
 	strcpy (indice_secundario[i].pk, pk); indice_secundario[i].pk[TAM_PRIMARY_KEY-1] = '\0';
 
 	(*num) = (*num) + 1;
@@ -716,31 +725,36 @@ int buscaDevCat(Ip *indice_primario, Ir *icat, Ir *idev, char *cat, char *dev, i
 	//Recupera as listas invertidas da categoria e desenvolvedora em questão
 	Ir *categ = recuperar_ListaInvertida(icat, cat, ncat);
 	Ir *desenv = recuperar_ListaInvertida(idev, dev, ndev);
-	ll *lista_cat = categ->lista, *lista_dev = desenv->lista;
-
 	int match = 0, ret = 0;
-	//Compara os elementos das listas buscando por pks iguais
-	if (lista_cat && lista_dev) {
-		while (lista_cat->prox || lista_dev->prox) {
-			ret = strcmp(lista_cat->pk, lista_dev->pk);
-			//Compara os elementos: se for igual, imprime o registro e movimenta os dois ponteiros de lista
-			//Se for diferente, movimenta o ponteiro da lista cujo elemento é o menor entre os dois comparados
-			if (!ret) {
-				match = 1;
-				exibir_registro(recuperar_rrn(indice_primario, lista_cat->pk, nregistros), 0);
 
-				//Se não for NULL, passa para o próximo elemento da lista
-				if (lista_cat->prox) lista_cat = lista_cat->prox;
-				if (lista_dev->prox) lista_dev = lista_dev->prox;
+	//Verifica se foi encontrado a desenvolvedora e a categoria desejadas
+	if (categ && desenv) {
+		ll *lista_cat = categ->lista, *lista_dev = desenv->lista;
 
-			} else if (lista_cat->prox && ret < 0)
-				lista_cat = lista_cat->prox;
-			else if (lista_dev->prox && ret > 0)
+		//Verifica a existência das listas
+		if (lista_cat && lista_dev) {
+
+			ll *aux;
+
+			//Fixando uma pk da desenvolvedora, percorre a lista da categoria procurando por pks iguais. Quando
+			//encontrada uma chave maior do que a fixada, para a procura e passa para o próximo elemento da lista de desenvolvedora
+			while (lista_dev) {
+				aux = lista_cat;
+
+				while (aux) {
+					ret = strcmp(lista_dev->pk, aux->pk);
+
+					if (!ret) {
+						if (match) printf("\n");
+
+						match = 1;
+						exibir_registro(recuperar_rrn(indice_primario, aux->pk, nregistros), 0);
+						break;
+					} else if (ret < 0) break;
+					else aux = aux->prox;
+				}
 				lista_dev = lista_dev->prox;
-
-			//Caso uma das listas já tenha finalizado e o menor elemento ainda seja pertencente a
-			//essa lista, o laço é interrompido pois não há mais necessidade de comparação
-			else if ((lista_cat->prox && ret > 0) || (lista_dev->prox && ret < 0)) break;
+			}
 		}
 	}
 
@@ -783,6 +797,7 @@ int listar_ListaInvertida (Ir *indice_secundario, Ip *indice_primario, int nregi
 	return (nSecIndex - contInexistentes);
 }
 
+//Listagem de preços
 int listar_precos (Is *iprice, Ip *indice_primario, int nregistros, int nprice) {
 	//Caso não tenha elementos no vetor
 	if (!nprice) return 0;
@@ -795,6 +810,21 @@ int listar_precos (Is *iprice, Ip *indice_primario, int nregistros, int nprice) 
 	}
 
 	return 1;
+}
+
+//Listagem de categoria
+int listar_categoria (Ir *icat, Ip *indice_primario, int nregistros, int ncat) {
+	//Caso não existam elementos no vetor de categoria
+	if (!ncat) return 0;
+
+	//Lê a chave primária desejada
+	char categoria[TAM_CATEGORIA];
+	scanf ("%s", categoria);
+
+	//Realiza busca e exibe a lista invertida da categoria em questão
+	Ir *cat = bsearch(categoria, icat, ncat, sizeof(Ir), compare_Sind_Bsearch);
+	return exibir_ListaInvertida(cat, indice_primario, nregistros);
+
 }
 
 /* FUNÇÕES DE ALTERAÇÃO DE DESCONTO */
@@ -818,23 +848,23 @@ int alterar(Ip *iprimary, Is **iprice, int nregistros, int nprice) {
 			desconto = str2int(descontoStr);
 		}
 
-		double preco, comDesconto;
+		float preco, comDesconto;
 		int desc_atual;
 
 		//Lê o registro, calcula o preço com desconto atual e busca no índice de preços
 		Jogo j = recuperar_registro(Pindex->rrn);
-		preco = str2double(j.preco);
+		preco = str2float(j.preco);
 		desc_atual = str2int(j.desconto);
-		comDesconto = preco * (1 - ((float)desc_atual/100));
+		comDesconto = preco * (100 - desc_atual); comDesconto = ((int) comDesconto)/100.0;
 		Is search;
-		sprintf (search.chave, "%07.2lf", comDesconto); search.chave[TAM_PRECO-1] = '\0';
+		sprintf (search.chave, "%07.2f", comDesconto); search.chave[TAM_PRECO-1] = '\0';
 		strcpy (search.pk, j.pk); search.pk[TAM_PRIMARY_KEY-1] = '\0';
 
 		Is *aux = bsearch(&search, (*iprice), nprice, sizeof(Is), compare_IS_Bsearch);
 
 		//Altera o valor e reordena o vetor
-		comDesconto = preco * (1 - ((float)desconto/100));
-		sprintf (aux->chave, "%07.2lf", comDesconto); aux->chave[TAM_PRECO-1] = '\0';
+		comDesconto = preco * (100 - desconto); comDesconto = ((int) comDesconto)/100.0;
+		sprintf (aux->chave, "%07.2f", comDesconto); aux->chave[TAM_PRECO-1] = '\0';
 		selectionSort (0, 0, 1, NULL, NULL, (*iprice), nprice);
 
 		//Altera o valor de desconto no arquivo de dados
@@ -866,12 +896,12 @@ void remove_No (ll **lista, char *P_index) {
 		(*lista) = ant->prox;
 		free(ant);
 	} else {
-		while (ant->prox && strcmp(ant->prox->pk, P_index))
+		while (strcmp(ant->prox->pk, P_index))
 			ant = ant->prox;
 
 		ll *rem = ant->prox;
 
-		ant = rem->prox;
+		ant->prox = rem->prox;
 		free (rem);
 	}
 }
@@ -890,7 +920,7 @@ int remover_registro (Ip **iprimary, Ir **igame, Ir **idev, Ir **icat, Is **ipri
 		Jogo j = recuperar_registro(Pindex->rrn);
 
 		//Remoção no arquivo de dados
-		ARQUIVO[Pindex->rrn * 192] = '|'; ARQUIVO[(Pindex->rrn * 192 + 1)] = '*';
+		ARQUIVO[Pindex->rrn * 192] = '*'; ARQUIVO[(Pindex->rrn * 192 + 1)] = '|';
 
 		//Remoção em índice primário
 		int ret = Pindex->rrn;
@@ -914,15 +944,15 @@ int remover_registro (Ip **iprimary, Ir **igame, Ir **idev, Ir **icat, Is **ipri
 		strcpy(search.pk, pk);
 
 		//Lê o preço e o desconto, aplica o desconto no preço e busca no índice de precos
-		double precoFinal;
-		precoFinal = str2double(j.preco) * (1 - ((float)str2int(j.desconto)/100));
-		sprintf(search.chave, "%07.2lf", precoFinal);
+		float precoFinal;
+		precoFinal = str2float(j.preco) * (100 - str2int(j.desconto)); precoFinal = ((int) precoFinal)/100.0;
+		sprintf(search.chave, "%07.2f", precoFinal);
 
 		Is *found = bsearch(&search, (*iprice), (*nprice), sizeof(Is), compare_IS_Bsearch);
 
 		//Torna o valor do registro encontrado o maior do vetor
-		precoFinal = str2double((*iprice)[(*nprice)-1].chave) + 1;
-		sprintf(found->chave, "%07.2lf", precoFinal);
+		precoFinal = str2float((*iprice)[(*nprice)-1].chave) + 1;
+		sprintf(found->chave, "%07.2f", precoFinal);
 
 		//Reordena o vetor, deixa o último registro vazio e decrementa nprice
 		selectionSort(0, 0, 1, NULL, NULL, (*iprice), (*nprice));
@@ -936,10 +966,10 @@ int remover_registro (Ip **iprimary, Ir **igame, Ir **idev, Ir **icat, Is **ipri
 	return 0;
 }
 
-//Função de conversão de string pra double
-double str2double (char *string) {
-	double preco;
-	sscanf(string, "%lf", &preco);
+//Função de conversão de string pra float
+float str2float (char *string) {
+	float preco;
+	sscanf(string, "%f", &preco);
 	return preco;
 }
 
@@ -956,12 +986,12 @@ void limpa_arquivos (Ip **iprimary, Ir **igame, Ir **idev, Ir **icat, int *nregi
 	int i = 0, mult = 1;
 
 	while (arq[i] != '\0') {
-		if (arq[i] == '|' && arq[i+1] == '*') {
+		if (arq[i] == '*' && arq[i+1] == '|') {
 
 			//Copia o registro seguinte para a posição do registro atual
 			for (; arq[i] != '\0'; i++) {
 				//Verifica a existência de outros registros excluídos
-				if (arq[i + (mult * 192)] == '|' && arq[i + (mult * 192) + 1] == '*') mult++;
+				if (arq[i + (mult * 192)] == '*' && arq[i + (mult * 192) + 1] == '|') mult++;
 				arq[i] = arq[i + (mult * 192)];
 			}
 
@@ -971,12 +1001,37 @@ void limpa_arquivos (Ip **iprimary, Ir **igame, Ir **idev, Ir **icat, int *nregi
 		i++;
 	}
 
-	//Recria os índices primários
+	//Recria os índices primários e secundários
 	free (*iprimary);
 	(*iprimary) = (Ip *) malloc (MAX_REGISTROS * sizeof(Ip));
 	(*nregistros) = strlen(ARQUIVO)/192;
 	criar_iprimary((*iprimary), (*nregistros));
 
-	/* CRIAR FUNÇÃO PARA LIMPAR ARQUIVO DE ÍNDICES SECUNDÁRIOS */
-	/* NOTA: Não esquecer de arrumar a precisão de valores decimais */
+	//Elimina índices secundários cujas listas são nulas
+	free (*igame); free (*idev); free (*icat);
+	(*igame) = (Ir *) malloc (sizeof(Ir)); (*idev) = (Ir *) malloc (sizeof(Ir)); (*icat) = (Ir *) malloc (sizeof(Ir));
+	(*ngame) = 0; (*ndev) = 0; (*ncat) = 0;
+	criar_IndicesSecundarios (igame, idev, icat, NULL, ngame, ndev, ncat, NULL, (*nregistros));
+}
+
+//Função para desalocar listas recursivamente
+void free_listas (ll **lista) {
+	if ((*lista)) return;
+
+	free_listas(&(*lista)->prox);
+	free ((*lista));
+	return;
+}
+
+//Função para liberar a memória
+void liberar (Ip **iprimary, Is **iprice, Ir **igame, Ir **idev, Ir **icat, int ngame, int ndev, int ncat) {
+	int i;
+
+	//Libera todas as listas ligadas -> listas invertidas
+	for (i = 0; i < ngame; i++) free_listas(&(*igame)[i].lista);
+	for (i = 0; i < ndev; i++) free_listas(&(*idev)[i].lista);
+	for (i = 0; i < ncat; i++) free_listas(&(*icat)[i].lista);
+
+	//Libera os vetores
+	free (*igame); free (*idev); free (*icat); free (*iprimary); free (*iprice);
 }
