@@ -172,8 +172,9 @@ void inserir_registro_indices(Indice *iprimary, Indice *idev, Jogo j);
 int exibir_registro(int rrn);
 
 /* FUNÇÕES PARA INSERÇÃO */
-int inserir (Indice *raiz, char ip, Jogo j);
+int inserir (Indice *raiz, Jogo j, char ip);
 int insere_aux(int rrn, void *chave_ins, void **prom_key, int ip);
+int split(void *no, void *chave_ins, void *prom_key, int rrn_no_criado, int ip);
 
 /* FUNÇÕES PARA MANIPULAÇÃO DE ARQUIVO */
 
@@ -194,11 +195,13 @@ int main()
 	tamanho_registro_is = 3 + ((ordem_is-1) * 111) + 1 + (ordem_is * 3);
 
 	/* Índice primário */
-	Indice iprimary ;
+	Indice iprimary;
+	iprimary.raiz = -1;
 	//criar_iprimary(&iprimary);
 
 	/* Índice secundário de nomes dos Jogos */
 	Indice idev;
+	idev.raiz = -1;
 	//criar_idev(&idev);
 
 	/* Execução do programa */
@@ -549,187 +552,179 @@ void *read_btree(int rrn, char ip){
 
 /* Dado um jogo, insere-o nos arquivos de índices */
 void cadastrar(Indice* iprimary, Indice* idev) {
-	// int i;
-	// node_Btree_is *no_is = criar_no('s');
-	// no_is->num_chaves = 2;
-	// strcpy (no_is->chave[0].pk, "LEWA041200"); strcpy(no_is->chave[0].string, "LEGO ALGO$WARNER");
-	// strcpy (no_is->chave[1].pk, "LEXA041201"); strcpy(no_is->chave[1].string, "LEGO ALGO$XARNER");
-	// no_is->desc[0] = 2; no_is->desc[1] = 4; no_is->desc[2] = 1;
-	// no_is->folha = 'F';
-
-	// write_btree(no_is, 0, 's');
-	// free(no_is);
-
-	// no_is = criar_no('s');
-	// no_is->num_chaves = 2;
-	// strcpy (no_is->chave[0].pk, "CARA123528"); strcpy(no_is->chave[0].string, "CA$RA");
-	// strcpy (no_is->chave[1].pk, "DIGA129983"); strcpy(no_is->chave[1].string, "DI$GA");
-	// no_is->desc[0] = 3; no_is->desc[1] = 5; no_is->desc[2] = 6;
-	// no_is->folha = 'N';
-
-	// write_btree(no_is, 1, 's');
-	// free(no_is);
-
-	// no_is = (node_Btree_is *) read_btree(0, 's');
-	// printf ("NUM_CHAVES: %d\nFOLHA: %c\n", no_is->num_chaves, no_is->folha);
-	// for (i = 0; i < no_is->num_chaves; i++) {
-	// 	printf("CHAVE: %s\tSTRING: %s\n", no_is->chave[i].pk, no_is->chave[i].string);
-	// }
-
-	// for (i = 0; i < no_is->num_chaves+1; i++) {
-	// 	printf("DESCENDENTE: %d\n", no_is->desc[i]);
-	// }
-
-	// no_is = (node_Btree_is *) read_btree(1, 's');
-	// printf ("NUM_CHAVES: %d\nFOLHA: %c\n", no_is->num_chaves, no_is->folha);
-	// for (i = 0; i < no_is->num_chaves; i++) {
-	// 	printf("CHAVE: %s\tSTRING: %s\n", no_is->chave[i].pk, no_is->chave[i].string);
-	// }
-
-	// for (i = 0; i < no_is->num_chaves+1; i++) {
-	// 	printf("DESCENDENTE: %d\n", no_is->desc[i]);
-	// }
 	Jogo *titulo = (Jogo *) malloc (sizeof(Jogo));
 	ler_entrada(&titulo);
+
+	inserir_registro_indices(iprimary, idev, *titulo);
 }
 
 //Função para inserção do novo jogo nos índices
 void inserir_registro_indices(Indice *iprimary, Indice *idev, Jogo j) {
-	void *no;
-	void *prom_key;
-	int no_criado, rrn_no;
+	// void *no;
+	// void *prom_key;
+	// int no_criado;
 
-	/* INSERÇÃO EM IPRIMARY */
-	rrn_no = nregistrosip;
+	// /* INSERÇÃO EM IPRIMARY */
 
-	//Árvore vazia
-	if (iprimary->raiz == -1) {
-		no = criar_no('p');
-		node_Btree_ip *novo_no = (node_Btree_ip *)no;
+	// //Árvore vazia
+	// if (iprimary->raiz == -1) {
+	// 	no = criar_no('p');
+	// 	node_Btree_ip *novo_no = (node_Btree_ip *)no;
 
-		novo_no->folha = 'F';
-		novo_no->num_chaves = 1;
-		strcpy(novo_no->chave[0].pk, j.pk);
-		novo_no->chave[0].rrn = nregistrosip;
-		nregistrosip++;
-	}
+	// 	novo_no->folha = 'F';
+	// 	novo_no->num_chaves = 1;
+	// 	strcpy(novo_no->chave[0].pk, j.pk);
+	// 	novo_no->chave[0].rrn = nregistros;
 
-	//Árvore não vazia
-	else {
-		//Compõem a chave a ser inserida
-		Chave_ip *chave_ins = (Chave_ip *) malloc (sizeof(Chave_ip));
-		strcpy(chave_ins->pk, j.pk); chave_ins->rrn = nregistros;
+	// 	iprimary->raiz = 0;
 
-		//Busca o nó folha onde a chave deve ser inserida, realizando operações de divisão de nós(split) se necessário
-		no_criado = insere_aux(iprimary->raiz, chave_ins, &prom_key, 'p');
+	// 	//Escreve o registro no arquivo de índices primários e no arquivo de dados
+	// 	/* ESCREVE NO ARQUIVO DE DADOS */
+	// 	write_btree(no, nregistrosip, 'p');
 
-		//Verifica se a propagação de split chegou até a raiz
-		if (prom_key != NULL) {
-			no = criar_no('p');
-			node_Btree_ip *novo_no = (node_Btree_ip *)no;
+	// 	//Desaloca os dados que já foram utilizados
+	// 	free(no);
 
-			novo_no->folha = 'N';
-			novo_no->num_chaves = 1;
-			novo_no->chave[0] = *((Chave_ip *)prom_key);
+	// 	nregistros++;
+	// 	nregistrosip++;
+	// }
 
-			novo_no->desc[0] = iprimary->raiz;
-			novo_no->desc[1] = no_criado;
+	// //Árvore não vazia
+	// else {
+	// 	//Compõem a chave a ser inserida
+	// 	prom_key = malloc (sizeof(Chave_ip));
+	// 	Chave_ip *chave_ins = (Chave_ip *) malloc (sizeof(Chave_ip));
+	// 	strcpy(chave_ins->pk, j.pk); chave_ins->rrn = nregistros;
 
-			iprimary->raiz = nregistrosip;
+	// 	//Busca o nó folha onde a chave deve ser inserida, realizando operações de divisão de nós(split) se necessário
+	// 	no_criado = insere_aux(iprimary->raiz, chave_ins, &prom_key, 'p');
 
-			nregistrosip++;
-		}
+	// 	//Verifica se a propagação de split chegou até a raiz
+	// 	//Chave inserida já existe na árvore
+	// 	if (no_criado == -2){
+	// 		printf(ERRO_PK_REPETIDA, j.pk);
+	// 		return;
+	// 	} else if (prom_key != NULL) {
+	// 		no = criar_no('p');
+	// 		node_Btree_ip *novo_no = (node_Btree_ip *)no;
 
-		//Chave inserida já existe na árvore
-		else if (no_criado == -2){
-			printf(ERRO_PK_REPETIDA, j.pk);
-			return;
-		}
-	}
+	// 		novo_no->folha = 'N';
+	// 		novo_no->num_chaves = 1;
 
-	//Escreve o registro no arquivo de índices primários e no arquivo de dados
-	/* ESCREVE NO ARQUIVO DE DADOS */
-	write_btree(no, rrn_no, 'p');
+	// 		novo_no->chave[0] = *((Chave_ip *)prom_key);
 
-	free(no);
-	free(prom_key);
+	// 		novo_no->desc[0] = iprimary->raiz;
+	// 		novo_no->desc[1] = no_criado;
 
-	no = NULL;
-	prom_key = NULL;
-	no_criado = -1;
-	rrn_no = nregistrosis;
+	// 		iprimary->raiz = nregistrosip;
 
-	/* INSERÇÃO EM IDEV */
-	//Árvore vazia
-	if (idev->raiz == -1) {
-		no = criar_no('s');
-		node_Btree_is *novo_no = (node_Btree_is *)no;
+	// 		//Escreve o registro no arquivo de índices primários e no arquivo de dados
+	// 		/* ESCREVE NO ARQUIVO DE DADOS */
+	// 		write_btree(no, nregistrosip, 'p');
 
-		novo_no->folha = 'F';
-		novo_no->num_chaves = 1;
-		strcpy(novo_no->chave[0].pk, j.pk);
-		strcpy(novo_no->chave[0].string, j.desenvolvedora);
-		strcat(novo_no->chave[0].string, "$");
-		strcat(novo_no->chave[0].string, j.nome);
-		nregistrosis++;
-	}
+	// 		//Desaloca os dados que já foram utilizados
+	// 		free(no);
+	// 		free(prom_key);
 
-	//Árvore não vazia
-	else {
-		//Compõem a chave a ser inserida
-		Chave_is *chave_ins = (Chave_is *) malloc (sizeof(Chave_is));
-		strcpy (chave_ins->pk, j.pk);
-		strcat (chave_ins->string, j.desenvolvedora);
-		strcat (chave_ins->string, "$");
-		strcat (chave_ins->string, j.nome);
+	// 		nregistros++;
+	// 		nregistrosip++;
+	// 	}
+	// }
 
-		//Busca o nó folha onde a chave deve ser inserida, realizando operações de divisão de nós(split) se necessário
-		no_criado = insere_aux(idev->raiz, chave_ins, &prom_key, 's');
+	// no = NULL;
+	// prom_key = NULL;
+	// no_criado = -1;
 
-		//Verifica se a propagação de split chegou até a raiz
-		if (prom_key != NULL) {
-			no = criar_no('s');
-			node_Btree_is *novo_no = (node_Btree_is *)no;
+	// /* INSERÇÃO EM IDEV */
+	// //Árvore vazia
+	// if (idev->raiz == -1) {
+	// 	no = criar_no('s');
+	// 	node_Btree_is *novo_no = (node_Btree_is *)no;
 
-			novo_no->folha = 'N';
-			novo_no->num_chaves = 1;
+	// 	novo_no->folha = 'F';
+	// 	novo_no->num_chaves = 1;
+	// 	strcpy(novo_no->chave[0].pk, j.pk);
+	// 	strcpy(novo_no->chave[0].string, j.desenvolvedora);
+	// 	strcat(novo_no->chave[0].string, "$");
+	// 	strcat(novo_no->chave[0].string, j.nome);
 
-			novo_no->chave[0] = *((Chave_is *)prom_key);
+	// 	idev->raiz = 0;
+	// 	//Escreve o registro no arquivo de índices primários
+	// 	write_btree(no, nregistrosis, 's');
 
-			novo_no->desc[0] = idev->raiz;
-			novo_no->desc[1] = no_criado;
+	// 	//Desaloca as variáveis já utilizadas
+	// 	free(no);
 
-			idev->raiz = nregistrosis;
-			nregistrosis++;
-		}
-	}
+	// 	nregistrosis++;
+	// }
 
-	//Escreve o registro no arquivo de índices primários
-	write_btree(no, rrn_no, 's');
+	// //Árvore não vazia
+	// else {
+	// 	//Compõem a chave a ser inserida
+	// 	prom_key = malloc(sizeof(Chave_is));
+	// 	Chave_is *chave_ins = (Chave_is *) malloc (sizeof(Chave_is));
+	// 	strcpy (chave_ins->pk, j.pk);
+	// 	strcat (chave_ins->string, j.desenvolvedora);
+	// 	strcat (chave_ins->string, "$");
+	// 	strcat (chave_ins->string, j.nome);
 
-	free(no);
-	free(prom_key);
+	// 	//Busca o nó folha onde a chave deve ser inserida, realizando operações de divisão de nós(split) se necessário
+	// 	no_criado = insere_aux(idev->raiz, chave_ins, prom_key, 's');
+
+	// 	//Verifica se a propagação de split chegou até a raiz
+	// 	if (prom_key != NULL) {
+
+	// 		no = criar_no('s');
+	// 		node_Btree_is *novo_no = (node_Btree_is *)no;
+
+	// 		novo_no->folha = 'N';
+	// 		novo_no->num_chaves = 1;
+
+	// 		novo_no->chave[0] = *((Chave_is *)prom_key);
+
+	// 		novo_no->desc[0] = idev->raiz;
+	// 		novo_no->desc[1] = no_criado;
+
+	// 		idev->raiz = nregistrosis;
+	// 		//Escreve o registro no arquivo de índices primários
+	// 		write_btree(no, nregistrosis, 's');
+
+	// 		//Desaloca as variáveis já utilizadas
+	// 		free(no);
+	// 		free(prom_key);
+
+	// 		nregistrosis++;
+	// 	}
+	// }
+
+	if (inserir(iprimary, j, 'p') == -2) printf(ERRO_PK_REPETIDA, j.pk);
+	else inserir(idev, j, 's');
 }
 
-//Função genérica para inserção de nó na árvore-B solicitada
-/*int inserir (Indice *ind, char ip, Jogo j) {
-
+//Função auxiliar para inserção
+int inserir (Indice *ind, Jogo j, char ip) {
 	void *no;
+	void *prom_key;
+	int no_criado, *nregs;
 
-	//Verifica se a árvore é vazia
+	//Define qual indicador de quantidade de registros será utilizado
+	if (ip == 'p') nregs = &nregistrosip;
+	else nregs = &nregistrosis;
+
+	//Árvore vazia
 	if (ind->raiz == -1) {
 		no = criar_no(ip);
 
-		//Verifica qual estrutura está sendo usada e incialização da estrutura
+		//Insere dados sobre o novo nó de acordo com o tipo de estrutura
 		if (ip == 'p') {
 			node_Btree_ip *novo_no = (node_Btree_ip *)no;
 
 			novo_no->folha = 'F';
 			novo_no->num_chaves = 1;
 			strcpy(novo_no->chave[0].pk, j.pk);
-			novo_no->chave[0].rrn = nregistrosip;
-			nregistrosip++;
-		} else if (ip == 's') {
+			novo_no->chave[0].rrn = nregistros;
+			nregistros++;
+		} else {
 			node_Btree_is *novo_no = (node_Btree_is *)no;
 
 			novo_no->folha = 'F';
@@ -738,74 +733,89 @@ void inserir_registro_indices(Indice *iprimary, Indice *idev, Jogo j) {
 			strcpy(novo_no->chave[0].string, j.desenvolvedora);
 			strcat(novo_no->chave[0].string, "$");
 			strcat(novo_no->chave[0].string, j.nome);
-			nregistrosis++;
 		}
 
-		//Escreve o registro gerado no arquivo de indices
-		write_btree(no, 0, ip);
+		ind->raiz = 0;
 
-		return 1;
+		//Escreve o registro no arquivo de índices primários e no arquivo de dados
+		/* ESCREVE NO ARQUIVO DE DADOS */
+		write_btree(no, (*nregs), ip);
+
+		//Desaloca os dados que já foram utilizados
+		free(no);
+
+		(*nregs)++;
 	}
 
-	//Caso a árvore não esteja vazia, busca a folha onde a chave deve ser inserida
+	//Árvore não vazia
 	else {
-		char chave_ins[112];
-		void *prom_key;
-		int no_criado;
-
-		//Verifica qual chave será inserida
-		if (ip == 'p') sprintf(chave_aux, "%s%04d", j.pk, j.);
-		else if (ip == 's') {
-			strcpy (chave_aux, j.pk);
-			strcat (chave_aux, j.desenvolvedora);
-			strcat (chave_aux, "$");
-			strcat (chave_aux, j.nome);
+		//Aloca e compoem a chave a ser inserida de acordo com o tipo de estrutura usado
+		void *chave_ins;
+		if (ip == 'p'){
+			chave_ins = malloc (sizeof(Chave_ip));
+			prom_key = malloc (sizeof(Chave_ip));
+			strcpy(((Chave_ip *)chave_ins)->pk, j.pk); ((Chave_ip *)chave_ins)->rrn = nregistros;
+		}
+		else{
+			chave_ins = malloc (sizeof(Chave_is));
+			prom_key = malloc (sizeof(Chave_is));
+			strcpy(((Chave_is *)chave_ins)->pk, j.pk);
+			strcpy(((Chave_is *)chave_ins)->string, j.desenvolvedora);
+			strcat(((Chave_is *)chave_ins)->string, "$");
+			strcat(((Chave_is *)chave_ins)->string, j.nome);
 		}
 
 		//Busca o nó folha onde a chave deve ser inserida, realizando operações de divisão de nós(split) se necessário
-		no_criado = insere_aux(ind->raiz, chave_aux, &prom_key);
+		no_criado = insere_aux(ind->raiz, chave_ins, &prom_key, ip);
 
 		//Verifica se a propagação de split chegou até a raiz
-		if (prom_key != NULL) {
-			int rrn_no;
+		//Chave inserida já existe na árvore
+		if (no_criado == -2) return -2;
+		else if (prom_key != NULL) {
 			no = criar_no(ip);
 
 			if (ip == 'p') {
 				node_Btree_ip *novo_no = (node_Btree_ip *)no;
-
+				
 				novo_no->folha = 'N';
 				novo_no->num_chaves = 1;
-				novo_no->chave[0] = (node_Btree_ip *)prom_key;
+
+				novo_no->chave[0] = *((Chave_ip *)prom_key);
 
 				novo_no->desc[0] = ind->raiz;
 				novo_no->desc[1] = no_criado;
 
-				ind->raiz = nregistrosip;
-				rrn_no = nregistrosip;
-				nregistrosip++;
-			} else if (ip == 's') {
+				nregistros++;
+			} else {
 				node_Btree_is *novo_no = (node_Btree_is *)no;
-
+				
 				novo_no->folha = 'N';
 				novo_no->num_chaves = 1;
 
-				novo_no->chave[0] = (node_Btree_is *)prom_key;
+				novo_no->chave[0] = *((Chave_is *)prom_key);
 
 				novo_no->desc[0] = ind->raiz;
 				novo_no->desc[1] = no_criado;
-
-				ind->raiz = nregistrosis;
-				rrn_no = nregistrosis;
-				nregistrosis++;
 			}
 
-			//Escreve o registro no arquivo de índices
-			write_btree(no, rrn_no, ip);
+			ind->raiz = (*nregs);
+
+			//Escreve o registro no arquivo de índices primários e no arquivo de dados
+			/* ESCREVE NO ARQUIVO DE DADOS */
+			write_btree(no, (*nregs), ip);
+
+			//Desaloca os dados que já foram utilizados
+			free(no);
+			free(prom_key);
+
+			(*nregs)++;
 		}
 	}
-}*/
 
-/* PARA CHAVE PRIMÁRIA, COMPARAR OS 10 PRIMEIROS DIGITOS DA CHAVE DA ÁRVORE E DEPOIS OS 4 DE RRN */
+	return 1;
+}
+
+//Função auxiliar que busca a primeira folha para inserção e cuida da propagação dos splits
 int insere_aux(int rrn, void *chave_ins, void **prom_key, int ip) {
 	//Recupera o nó raiz do arquivo de índices passado como parâmetro
 	void *no = read_btree(rrn, ip);
@@ -836,9 +846,18 @@ int insere_aux(int rrn, void *chave_ins, void **prom_key, int ip) {
 				no_rec->chave[i+1] = *(key);
 				no_rec->num_chaves++;
 				(*prom_key) = NULL;
+
+				//Escreve no arquivo de índices
+				write_btree(no, rrn, ip);
+
+				nregistros++;
+
 				return -1;
-			} else
-				return split();
+			} else {
+				int ret = split(no, chave_ins, *prom_key, -1, ip);
+				if (ret >= 0) write_btree(no, rrn, ip);
+				return ret;
+			}
 		}
 
 		//Caso não seja nó folha
@@ -848,16 +867,24 @@ int insere_aux(int rrn, void *chave_ins, void **prom_key, int ip) {
 
 			Chave_ip *key = (Chave_ip *)chave_ins;
 			while (i >= 0 && strcmp(key->pk, no_rec->chave[i].pk) < 0) i--;
+
+			//Para o caso de a chave já estiver inserida neste nó
+			if (strcmp(key->pk, no_rec->chave[i].pk) == 0) return -2;
+
 			i++;
 			int no_criado = insere_aux(no_rec->desc[i], chave_ins, prom_key, ip);
 
+			//Para o caso de a chave já estiver inserida em um nó mais baixo na hierarquia
+			if (no_criado == -2) return -2;
+
 			//Verifica se houve propagação de split até o nível atual
-			if ((*prom_key) != NULL) {
+			else if ((*prom_key) != NULL) {
+
 				//Verifica se haverá divisão do nó (split)
 				if (no_rec->num_chaves < ordem_ip-1) {
 
 					//Busca o local onde inserir a chave
-					int i = no_rec->num_chaves-1;
+					i = no_rec->num_chaves-1;
 
 					while (i >= 0 && strcmp(key->pk, no_rec->chave[i].pk) < 0) {
 						no_rec->chave[i+1] = no_rec->chave[i];
@@ -866,19 +893,96 @@ int insere_aux(int rrn, void *chave_ins, void **prom_key, int ip) {
 					}
 
 					//Realiza o posicionamento da chave
-					no_rec->chave[i+1] = *(key);
+					no_rec->chave[i+1] = *((Chave_ip *)(*prom_key));
 					no_rec->desc[i+2] = no_criado;
 					no_rec->num_chaves++;
 					(*prom_key) = NULL;
+
+					//Escreve o nó no arquivo de índices
+					write_btree(no_rec, rrn, ip);
+
+					nregistros++;
+
 					return -1;
-				} else split();
+				} else {
+					int ret = split(no, *prom_key, *prom_key, no_criado, ip);
+					if (ret >= 0) write_btree(no, rrn, ip);
+					return ret;
+				}
 			} else {
 				(*prom_key) = NULL;
 				return -1;
 			}
 		}
 	}
-
 }
 
-//split ();
+int split(void *no, void *chave_ins, void *prom_key, int rrn_no_criado, int ip) {
+	/* SPLIT DE ÍNDICE PRIMÁRIO */
+	if (ip == 'p') {
+		node_Btree_ip *node = (node_Btree_ip *)no;
+		Chave_ip *key = (Chave_ip *)chave_ins;
+
+		int i, aux, flag_ins = 0;
+		Chave_ip chaves[ordem_ip]; //Vetor auxiliar para realização do split
+		int descendentes[ordem_ip+1]; //Vetor auxiliar para realização do split
+		
+		//Insere a chave passada no vetor auxiliar, assim como seu descendente
+		for (i = ordem_ip-1; i > 0;) {
+			aux = strcmp(key->pk, node->chave[i-1].pk);
+
+			if (!aux) return -2; //Para o caso de a chave já estar inserida na árvore
+			else if (!flag_ins && aux > 0) {
+				flag_ins = 1;
+				chaves[i] = *key;
+				descendentes[i+1] = rrn_no_criado;
+			} else if (!flag_ins) {
+				chaves[i] = node->chave[i-1];
+				descendentes[i+1] = node->desc[i];
+				i--;
+			} else {
+				chaves[i-1] = node->chave[i-1];
+				descendentes[i] = node->desc[i];
+				i--;
+			}
+		}
+		if (!flag_ins) {
+			flag_ins = 1;
+			chaves[i] = *key;
+			descendentes[i+1] = rrn_no_criado;
+		}
+		descendentes[0] = node->desc[0];
+
+		//Encontra a chave a ser promovida
+		int pos_prom = ordem_ip/2;
+		(*((Chave_ip *)prom_key)) = chaves[pos_prom];
+
+		//Cria novo nó e atribui a ele as chaves e os respectivos descendentes
+		node_Btree_ip *novo_no = (node_Btree_ip *) criar_no(ip);
+		for (i = pos_prom+1; i < ordem_ip; i++) {
+			novo_no->chave[i - (pos_prom+1)] = chaves[i];
+			novo_no->desc[i - (pos_prom+1)] = descendentes[i];
+		}
+		novo_no->desc[i-(pos_prom+1)] = descendentes[ordem_ip];
+
+		//Atribui os valores de nó folha e num_chaves
+		novo_no->folha = node->folha;
+		novo_no->num_chaves = ordem_ip-1 - pos_prom;
+
+		//Escreve o novo nó no arquivo de índices primários
+		write_btree(novo_no, nregistrosip, ip);
+		nregistrosip++;
+
+		//Atualiza o nó que sofreu o split
+		node->num_chaves -= novo_no->num_chaves;
+		for (i = 0; i < pos_prom; i++) {
+			node->chave[i] = chaves[i];
+			node->desc[i] = descendentes[i];
+		}
+		node->desc[i] = descendentes[i];
+
+		for (i = pos_prom+1; i < ordem_ip; i++) node->desc[i] = -1; //Coloca descendentes passasdos para o nó criado como nulos
+
+		return (nregistrosip-1);
+	}
+}
