@@ -178,8 +178,14 @@ int split(void *no, void *chave_ins, void *prom_key, int rrn_no_criado, int ip);
 
 /* FUNÇÕES PARA MANIPULAÇÃO DE ARQUIVO */
 
-/* Lê a entrada e salva os dados em uma struct Jogo */
+//Lê a entrada e salva os dados em uma struct Jogo
 void ler_entrada (Jogo **titulo);
+
+//Insere um registro no arquivo de dados
+void insere_Arq (Jogo titulo, int nregistros);
+
+//Dado um rrn, recupera um registro do arquivo de dados
+Jogo recuperar_registro(int rrn);
 
 int main()
 {
@@ -196,13 +202,11 @@ int main()
 
 	/* Índice primário */
 	Indice iprimary;
-	iprimary.raiz = -1;
-	//criar_iprimary(&iprimary);
+	criar_iprimary(&iprimary);
 
 	/* Índice secundário de nomes dos Jogos */
 	Indice idev;
-	idev.raiz = -1;
-	//criar_idev(&idev);
+	criar_idev(&idev);
 
 	/* Execução do programa */
 	int opcao = 0; char *p;
@@ -336,6 +340,32 @@ void *criar_no(char ip) {
 	}
 }
 
+//Cria iprimary a partir de um arquivo de dados fornecido
+void criar_iprimary(Indice *iprimary) {
+	iprimary->raiz = -1;
+
+	int i;
+	Jogo j;
+
+	for (i = 0; i < nregistros; i++) {
+		j = recuperar_registro(i);
+		inserir(iprimary, j, 'p');
+	}
+}
+
+//Cria idev a partir de um arquivo de dados fornecido
+void criar_idev(Indice *idev) {
+	idev->raiz = -1;
+
+	int i;
+	Jogo j;
+
+	for (i = 0; i < nregistros; i++) {
+		j = recuperar_registro(i);
+		inserir(idev, j, 's');
+	}
+}
+
 /* FUNÇÕES PARA MANIPULAÇÃO DE ARQUIVO */
 //Lê as entradas fornecidas pelo usuário e insere numa estrutura de jogo
 void ler_entrada (Jogo **titulo) {
@@ -359,6 +389,46 @@ void ler_entrada (Jogo **titulo) {
 	sprintf ((*titulo)->pk, "%c%c%c%c%c%c%c%c%s", (*titulo)->nome[0], (*titulo)->nome[1],
 	(*titulo)->desenvolvedora[0], (*titulo)->desenvolvedora[1], (*titulo)->data[0],
 	(*titulo)->data[1], (*titulo)->data[3], (*titulo)->data[4], (*titulo)->classificacao);
+}
+
+//Insere um novo registro no arquivo de dados
+void insere_Arq (Jogo titulo, int nregistros) {
+	char *archive = ARQUIVO;
+
+	//Encontra a quantidade de caracteres '#' devem ser inseridas
+	int qntd_sharps = 192 - (40 + strlen(titulo.nome) + strlen(titulo.desenvolvedora) + strlen(titulo.categoria));
+
+	//Escreve o registro no arquivo de dados no primeiro espaço em branco
+	sprintf((archive + (192 * nregistros)), "%s@%s@%s@%s@%s@%s@%s@%s@", titulo.pk, titulo.nome, titulo.desenvolvedora,
+	titulo.data, titulo.classificacao, titulo.preco, titulo.desconto, titulo.categoria);
+
+	//Coloca os "#" no arquivo
+	int i;
+	int position = (192 * (nregistros+1)) - qntd_sharps;
+	for (i = 0; i < qntd_sharps; i++)
+		*(archive + (position + i)) = '#';
+}
+
+//Dado um rrn, recupera um registro do arquivo de dados
+Jogo recuperar_registro(int rrn) {
+	Jogo j;
+
+	char copy[193];
+	char *arq = ARQUIVO;
+
+	//Realiza a cópia do registro encontrado no arquivo de dados
+	strncpy(copy, &arq[rrn * 192], 192); copy[193] = '\0';
+
+	strcpy (j.pk, strtok(copy, "@"));
+	strcpy (j.nome, strtok(NULL, "@"));
+	strcpy (j.desenvolvedora, strtok(NULL, "@"));
+	strcpy (j.data, strtok(NULL, "@"));
+	strcpy (j.classificacao, strtok(NULL, "@"));
+	strcpy (j.preco, strtok(NULL, "@"));
+	strcpy (j.desconto, strtok(NULL, "@"));
+	strcpy (j.categoria, strtok(NULL, "@"));
+
+	return j;
 }
 
 //Função para escrita de nó no arquivo de índices
@@ -587,6 +657,8 @@ int inserir (Indice *ind, Jogo j, char ip) {
 			novo_no->num_chaves = 1;
 			strcpy(novo_no->chave[0].pk, j.pk);
 			novo_no->chave[0].rrn = nregistros;
+
+			insere_Arq(j, nregistros); //Insere o registro j no arquivo de dados
 			nregistros++;
 		} else {
 			node_Btree_is *novo_no = (node_Btree_is *)no;
@@ -602,7 +674,6 @@ int inserir (Indice *ind, Jogo j, char ip) {
 		ind->raiz = 0;
 
 		//Escreve o registro no arquivo de índices primários e no arquivo de dados
-		/* ESCREVE NO ARQUIVO DE DADOS */
 		write_btree(no, (*nregs), ip);
 
 		//Desaloca os dados que já foram utilizados
@@ -635,6 +706,7 @@ int inserir (Indice *ind, Jogo j, char ip) {
 		//Verifica se a propagação de split chegou até a raiz
 		//Chave inserida já existe na árvore
 		if (no_criado == -2) return -2;
+
 		else if (prom_key != NULL) {
 			no = criar_no(ip);
 
@@ -665,7 +737,6 @@ int inserir (Indice *ind, Jogo j, char ip) {
 			ind->raiz = (*nregs);
 
 			//Escreve o registro no arquivo de índices primários e no arquivo de dados
-			/* ESCREVE NO ARQUIVO DE DADOS */
 			write_btree(no, (*nregs), ip);
 
 			//Desaloca os dados que já foram utilizados
@@ -674,6 +745,7 @@ int inserir (Indice *ind, Jogo j, char ip) {
 
 			(*nregs)++;
 		}
+		insere_Arq(j, nregistros-1); //Insere o registro j no arquivo de dados
 	}
 
 	return 1;
