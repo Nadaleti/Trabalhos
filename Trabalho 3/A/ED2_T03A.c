@@ -142,6 +142,8 @@ void carregar_tabela(Hashtable* tabela);
 //Impressão da tabela
 void imprimir_tabela(Hashtable tabela);
 
+//Auxiliar para busca
+int buscar_hashTable (Hashtable tabela, char *pk);
 
 /* ==========================================================================
  * ============================ FUNÇÃO PRINCIPAL ============================
@@ -265,7 +267,7 @@ short hash(const char* chave, int tam) {
 int prox_primo(int a) {
 	if (a % 2 == 0 && a != 2) a++;
 
-	int i, max_div;
+	int i;
 	while (1) {
 		i = 3;
 
@@ -281,6 +283,9 @@ int prox_primo(int a) {
 void criar_tabela(Hashtable *tabela, int tam) {
 	tabela->tam = tam;
 	tabela->v = (Chave *) malloc (sizeof(Chave) * tam);
+
+	int i;
+	for (i = 0; i < tam; i++) tabela->v[i].estado = LIVRE;
 }
 
 //Dado um arquivo, insere os registros do arquivo na tabela hash
@@ -382,7 +387,7 @@ int inserir_Tab(Hashtable *tabela, char *pk, int rrn) {
 	int i = hash(pk, tabela->tam), cont = 0;
 
 	//Procura pela primeira posição livre (ou marcada como 'removido')
-	while (tabela->v[i % tabela->tam].estado == 1 && cont != tabela->tam) {
+	while (cont != tabela->tam && tabela->v[i % tabela->tam].estado == OCUPADO) {
 
 		//Verifica se a chave já foi inserida na tabela
 		if (!strcmp(tabela->v[i % tabela->tam].pk, pk)) {
@@ -396,7 +401,7 @@ int inserir_Tab(Hashtable *tabela, char *pk, int rrn) {
 
 	//Insere na tabela
 	if (cont < tabela->tam) {
-		tabela->v[i % tabela->tam].estado = 1;
+		tabela->v[i % tabela->tam].estado = OCUPADO;
 		strcpy(tabela->v[i % tabela->tam].pk, pk);
 		tabela->v[i % tabela->tam].rrn = rrn;
 	} else if (cont == tabela->tam) { 
@@ -413,13 +418,13 @@ void imprimir_tabela(Hashtable tabela) {
 
 	for (i = 0; i < tabela.tam; i++) {
 		//Ocupado
-		if (tabela.v[i].estado == 1) printf("[%d] Ocupado: %s\n", i, tabela.v[i].pk);
+		if (tabela.v[i].estado == OCUPADO) printf(POS_OCUPADA, i, tabela.v[i].pk);
 
 		//Livre
-		else if (tabela.v[i].estado == 0) printf("[%d] Livre\n", i);
+		else if (tabela.v[i].estado == LIVRE) printf(POS_LIVRE, i);
 
 		//Removido
-		else if (tabela.v[i].estado == -1) printf("[%d] Removido\n", i);
+		else if (tabela.v[i].estado == REMOVIDO) printf(POS_REMOVIDA, i);
 	}
 }
 
@@ -431,9 +436,9 @@ int remover(Hashtable* tabela) {
 
 	//Busca pela chave inserida e a remove se for encontrada
 	int cont = 0, i = hash(pk, tabela->tam);
-	while ((cont != tabela->tam) && (tabela->v[i % tabela->tam].estado == 1)) {
-		if (!strcmp(tabela->v[i % tabela->tam].pk, pk)) {
-			tabela->v[i % tabela->tam].estado = -1;
+	while ((cont != tabela->tam) && ((tabela->v[i % tabela->tam].estado == OCUPADO) || (tabela->v[i % tabela->tam].estado == REMOVIDO))) {
+		if ((tabela->v[i % tabela->tam].estado == OCUPADO) && !strcmp(tabela->v[i % tabela->tam].pk, pk)) {
+			tabela->v[i % tabela->tam].estado = REMOVIDO;
 
 			//Marca o registro como removido no arquivo de dados
 			char *arq = &ARQUIVO[192 * tabela->v[i % tabela->tam].rrn];
@@ -457,39 +462,35 @@ void buscar(Hashtable tabela) {
 	scanf("%[^\n]", pk); getchar();
 
 	//Busca pela chave inserida 
+	int rrn = buscar_hashTable(tabela, pk);
+	if (rrn != -1) exibir_registro(rrn);
+	else printf(REGISTRO_N_ENCONTRADO);
+}
+
+int buscar_hashTable (Hashtable tabela, char *pk) {
+	//Busca pela chave inserida 
 	int cont = 0, i = hash(pk, tabela.tam);
-	while ((cont != tabela.tam) && (tabela.v[i % tabela.tam].estado == 1)) {
+	while ((cont != tabela.tam) && ((tabela.v[i % tabela.tam].estado == OCUPADO) || (tabela.v[i % tabela.tam].estado == REMOVIDO))) {
 
 		//Exibe-a caso a encontre
-		if (!strcmp(tabela.v[i % tabela.tam].pk, pk)) {
-			exibir_registro(tabela.v[i % tabela.tam].rrn);
-			return;
-		}
+		if ((tabela.v[i % tabela.tam].estado == OCUPADO) && !strcmp(tabela.v[i % tabela.tam].pk, pk))
+			return tabela.v[i % tabela.tam].rrn;
 
 		i++;
 		cont++;
 	}
 
-	printf(REGISTRO_N_ENCONTRADO);
+	return -1;
 }
 
 /* ALTERAÇÃO */
 int  alterar(Hashtable tabela) {
 	char pk[TAM_PRIMARY_KEY];
-	int rrn = -1;
 
 	scanf("%[^\n]", pk); getchar();
 
-	//Busca pela chave inserida 
-	int cont = 0, i = hash(pk, tabela.tam);
-	while ((cont != tabela.tam) && (tabela.v[i % tabela.tam].estado == 1)) {
-
-		//Para o laço caso a chave seja encontrada
-		if (!strcmp(tabela.v[i % tabela.tam].pk, pk)) {rrn = tabela.v[i % tabela.tam].rrn; break;}
-
-		i++;
-		cont++;
-	}
+	//Busca pela chave inserida
+	int rrn = buscar_hashTable(tabela, pk);
 
 	//Verifica se a chave foi encontrada
 	if (rrn != -1) {
@@ -508,7 +509,8 @@ int  alterar(Hashtable tabela) {
 		}
 
 		//Encontra a posição a ser alterada
-		aux = 0; i = 0;//Contador de @
+		aux = 0;
+		int i = 0;//Contador de @
 		while (aux != 6) {
 			if (arq[i] == '@') aux++;
 			i++;
